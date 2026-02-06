@@ -1,0 +1,146 @@
+'use client'
+
+import { registerUser } from "@/app/actions/register"
+import { Trophy } from "lucide-react"
+import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { useState } from "react"
+import { useFormStatus } from "react-dom"
+import { signIn } from "next-auth/react"
+
+function SubmitButton() {
+    const { pending } = useFormStatus()
+
+    return (
+        <button
+            type="submit"
+            disabled={pending}
+            className="group relative flex w-full justify-center rounded-md bg-yellow-500 px-3 py-2 text-sm font-semibold text-neutral-950 hover:bg-yellow-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-yellow-500 disabled:opacity-50"
+        >
+            {pending ? 'Creating account...' : 'Sign up'}
+        </button>
+    )
+}
+
+export default function RegisterPage() {
+    const router = useRouter()
+    const [error, setError] = useState<string | null>(null)
+
+    async function handleSubmit(formData: FormData) {
+        const result = await registerUser(formData)
+        if (result.error) {
+            setError(result.error)
+        } else {
+            router.push("/login?registered=true")
+        }
+    }
+
+    return (
+        <>
+            <div className="flex flex-col items-center">
+                <Link href="/" className="mb-6 flex items-center">
+                    <Trophy className="h-8 w-8 text-yellow-500 mr-2" />
+                    <span className="text-2xl font-bold text-neutral-100">Challenge.io</span>
+                </Link>
+                <h2 className="text-center text-3xl font-bold tracking-tight text-neutral-100">
+                    Create your account
+                </h2>
+                <p className="mt-2 text-center text-sm text-neutral-400">
+                    Or{' '}
+                    <Link href="/login" className="font-medium text-yellow-500 hover:text-yellow-400">
+                        sign in to your existing account
+                    </Link>
+                </p>
+            </div>
+
+            <div className="mt-8 space-y-6 bg-neutral-900 px-6 py-8 shadow sm:rounded-lg border border-neutral-800">
+                <button
+                    type="button"
+                    onClick={() => signIn("google", { callbackUrl: "/dashboard" })}
+                    className="flex w-full items-center justify-center gap-3 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm font-semibold text-neutral-100 hover:bg-neutral-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-500 disabled:opacity-50"
+                >
+                    <svg className="h-5 w-5" aria-hidden="true" viewBox="0 0 24 24">
+                        <path
+                            d="M12.0003 20.45c4.6667 0 7.9167-3.2307 7.9167-7.9167 0-.75-.0833-1.5-.2083-2.125h-7.7084v4.0417h4.4167c-.2083 1.25-.9167 2.3333-2 3.0416l3.2083 2.5c1.875-1.75 2.9583-4.3333 2.9583-7.25 0-1.8333-.4583-3.5833-1.2916-5.125l-3.3334 2.5833c.8333.625 1.4583 1.5 1.7083 2.5417H12.0003v4.0417h4.4167c-1.3333 3.6666-4.9167 6.25-9.0833 6.25-4.5417 0-8.2917-3.0417-9.5417-7.25l-3.0833 2.4167c2.0833 4.125 6.375 6.9583 11.2083 6.9583z"
+                            fill="currentColor"
+                        />
+                        <path
+                            d="M12.0003 3.55c2.4167 0 4.5833.875 6.2917 2.3333l3.0833-3.0833C19.0427 1.0833 15.667 0 12.0003 0 7.167 0 2.875 2.8333.792 6.9583l3.0833 2.4167c1.25-4.2083 5-7.25 9.5417-7.25z"
+                            fill="#EA4335"
+                        />
+                    </svg>
+                    <span className="text-sm font-semibold leading-6">Google</span>
+                </button>
+
+                <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                        <div className="w-full border-t border-neutral-700" />
+                    </div>
+                    <div className="relative flex justify-center text-sm">
+                        <span className="bg-neutral-900 px-2 text-neutral-400">Or continue with</span>
+                    </div>
+                </div>
+
+                <form action={handleSubmit} className="space-y-6">
+                    {error && (
+                        <div className="bg-red-900/50 border border-red-500 text-red-200 px-4 py-2 rounded text-sm">
+                            {error}
+                        </div>
+                    )}
+                    <div className="space-y-4">
+                        <div>
+                            <label htmlFor="name" className="block text-sm font-medium leading-6 text-neutral-300">
+                                Full Name
+                            </label>
+                            <div className="mt-2">
+                                <input
+                                    id="name"
+                                    name="name"
+                                    type="text"
+                                    autoComplete="name"
+                                    required
+                                    className="block w-full rounded-md border-0 bg-neutral-800 py-1.5 text-neutral-100 shadow-sm ring-1 ring-inset ring-neutral-700 placeholder:text-neutral-500 focus:ring-2 focus:ring-inset focus:ring-yellow-500 sm:text-sm sm:leading-6"
+                                />
+                            </div>
+                        </div>
+
+                        <div>
+                            <label htmlFor="email" className="block text-sm font-medium leading-6 text-neutral-300">
+                                Email address
+                            </label>
+                            <div className="mt-2">
+                                <input
+                                    id="email"
+                                    name="email"
+                                    type="email"
+                                    autoComplete="email"
+                                    required
+                                    className="block w-full rounded-md border-0 bg-neutral-800 py-1.5 text-neutral-100 shadow-sm ring-1 ring-inset ring-neutral-700 placeholder:text-neutral-500 focus:ring-2 focus:ring-inset focus:ring-yellow-500 sm:text-sm sm:leading-6"
+                                />
+                            </div>
+                        </div>
+
+                        <div>
+                            <label htmlFor="password" className="block text-sm font-medium leading-6 text-neutral-300">
+                                Password
+                            </label>
+                            <div className="mt-2">
+                                <input
+                                    id="password"
+                                    name="password"
+                                    type="password"
+                                    autoComplete="new-password"
+                                    required
+                                    minLength={6}
+                                    className="block w-full rounded-md border-0 bg-neutral-800 py-1.5 text-neutral-100 shadow-sm ring-1 ring-inset ring-neutral-700 placeholder:text-neutral-500 focus:ring-2 focus:ring-inset focus:ring-yellow-500 sm:text-sm sm:leading-6"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <SubmitButton />
+                </form>
+            </div>
+        </>
+    )
+}

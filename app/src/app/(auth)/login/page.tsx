@@ -1,6 +1,6 @@
 'use client'
 
-import { signIn } from "next-auth/react"
+import { signIn, getSession } from "next-auth/react"
 import { Trophy } from "lucide-react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
@@ -33,7 +33,10 @@ export default function LoginPage() {
             if (result?.error) {
                 setError("Invalid email or password")
             } else {
-                router.push("/dashboard")
+                // Fetch session to get role and redirect accordingly
+                const session = await getSession()
+                const redirectUrl = session?.user?.role === 'ADMIN' ? '/admin' : '/dashboard'
+                router.push(redirectUrl)
                 router.refresh()
             }
         } catch (error) {

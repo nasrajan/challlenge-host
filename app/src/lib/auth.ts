@@ -5,6 +5,10 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import bcrypt from "bcryptjs";
 
+export function getRedirectUrlForRole(role: string): string {
+    return role === 'ADMIN' ? '/admin' : '/dashboard';
+}
+
 export const authOptions: NextAuthOptions = {
     adapter: PrismaAdapter(prisma) as any,
     session: {

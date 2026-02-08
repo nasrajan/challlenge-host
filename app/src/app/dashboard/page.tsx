@@ -2,7 +2,9 @@ import { authOptions } from "@/lib/auth"
 import { getServerSession } from "next-auth"
 import { redirect } from "next/navigation"
 import Link from "next/link"
-import { Trophy, Plus, Settings, Users, LogOut } from "lucide-react"
+import { Trophy, Plus, Settings, Users, LogOut, ChevronRight, Activity } from "lucide-react"
+import { prisma } from "@/lib/prisma"
+import ActivityLogger from "@/app/components/ActivityLogger"
 
 export default async function DashboardPage() {
     const session = await getServerSession(authOptions)
@@ -10,6 +12,29 @@ export default async function DashboardPage() {
     if (!session) {
         redirect("/login")
     }
+
+    const participations = await prisma.participant.findMany({
+        where: {
+            userId: session.user.id,
+            status: "APPROVED"
+        },
+        include: {
+            challenge: {
+                include: {
+                    metrics: {
+                        include: {
+                            qualifiers: true,
+                            scoreSnapshots: {
+                                where: { userId: session.user.id },
+                                orderBy: { createdAt: 'desc' },
+                                take: 1
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    })
 
     // Common UI for all roles, with specific sections rendering conditionally
     return (
@@ -48,34 +73,101 @@ export default async function DashboardPage() {
                     )}
                 </div>
 
-                <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
-                    {/* USER role content */}
-                    <div className="p-8 rounded-2xl border border-neutral-800 bg-neutral-900 group hover:border-neutral-700 transition-all">
-                        <div className="p-3 bg-blue-500/10 rounded-xl w-fit mb-6 group-hover:bg-blue-500/20 transition-all">
-                            <Users className="h-6 w-6 text-blue-500" />
-                        </div>
-                        <h3 className="text-xl font-bold mb-2">My Challenges</h3>
-                        <p className="text-neutral-400 text-sm mb-6">You haven't joined any challenges yet.</p>
-                        <Link href="/challenges" className="text-sm font-semibold text-blue-500 hover:text-blue-400 flex items-center gap-2">
-                            Browse Public Challenges
-                            <Plus className="h-4 w-4" />
-                        </Link>
+                <div className="grid gap-8 lg:grid-cols-3">
+                    {/* Main Content Area */}
+                    <div className="lg:col-span-2 space-y-8">
+                        <section>
+                            <div className="flex items-center justify-between mb-6">
+                                <h3 className="text-xl font-bold flex items-center gap-2">
+                                    <Activity className="h-5 w-5 text-blue-500" />
+                                    Active Challenges
+                                </h3>
+                                <Link href="/challenges" className="text-sm text-neutral-500 hover:text-yellow-500 transition-colors font-medium">
+                                    Discover More
+                                </Link>
+                            </div>
+
+                            {participations.length === 0 ? (
+                                <div className="p-12 rounded-3xl border border-dashed border-neutral-800 bg-neutral-900/40 flex flex-col items-center justify-center text-center">
+                                    <Users className="h-12 w-12 text-neutral-700 mb-4" />
+                                    <h4 className="text-lg font-bold mb-2">No active missions</h4>
+                                    <p className="text-neutral-500 max-w-xs mb-6 text-sm">Join a public challenge or create one to start tracking your progress.</p>
+                                    <Link href="/challenges" className="bg-neutral-800 text-white px-6 py-2 rounded-xl font-semibold hover:bg-neutral-700 transition-all">
+                                        Browse Gallery
+                                    </Link>
+                                </div>
+                            ) : (
+                                <div className="grid gap-6">
+                                    {participations.map((p) => (
+                                        <div key={p.id} className="bg-neutral-900 border border-neutral-800 rounded-3xl p-6 hover:border-neutral-700 transition-all flex flex-col md:flex-row justify-between gap-6 group">
+                                            <div className="space-y-4 flex-1">
+                                                <div className="flex items-center justify-between">
+                                                    <h4 className="text-xl font-bold group-hover:text-yellow-500 transition-colors">{p.challenge.name}</h4>
+                                                    <div className="text-xs font-black text-neutral-500 uppercase tracking-widest bg-neutral-950 px-3 py-1 rounded-full border border-neutral-800">
+                                                        {p.challenge.status}
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex flex-wrap gap-4">
+                                                    {p.challenge.metrics.map(m => {
+                                                        const lastSnapshot = m.scoreSnapshots[0];
+                                                        return (
+                                                            <div key={m.id} className="bg-neutral-950/50 rounded-2xl p-4 border border-neutral-800/50 min-w-[140px]">
+                                                                <div className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">{m.name}</div>
+                                                                <div className="text-lg font-black text-white">
+                                                                    {lastSnapshot?.totalPoints || 0}
+                                                                    <span className="text-xs text-neutral-500 font-medium ml-1">pts</span>
+                                                                </div>
+                                                            </div>
+                                                        )
+                                                    })}
+                                                </div>
+                                            </div>
+
+                                            <div className="flex flex-col gap-3 justify-center md:items-end">
+                                                <ActivityLogger
+                                                    challengeId={p.challengeId}
+                                                    challengeName={p.challenge.name}
+                                                    metrics={p.challenge.metrics.map(m => ({
+                                                        id: m.id,
+                                                        name: m.name,
+                                                        unit: m.unit,
+                                                        qualifiers: m.qualifiers
+                                                    }))}
+                                                />
+                                                <Link
+                                                    href={`/challenges/${p.challengeId}`}
+                                                    className="text-xs font-bold text-neutral-500 hover:text-white flex items-center gap-1 transition-colors px-2"
+                                                >
+                                                    View Details <ChevronRight className="h-3 w-3" />
+                                                </Link>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </section>
                     </div>
 
-                    {/* ADMIN role specific controls */}
-                    {session.user.role === 'ADMIN' && (
-                        <div className="p-8 rounded-2xl border border-red-500/20 bg-red-500/5 group hover:bg-red-500/10 transition-all">
-                            <div className="p-3 bg-red-500/10 rounded-xl w-fit mb-6">
-                                <Shield className="h-6 w-6 text-red-500" />
-                            </div>
-                            <h3 className="text-xl font-bold text-red-500 mb-2">Admin Panel</h3>
-                            <p className="text-neutral-400 text-sm mb-6">System-wide user and challenge management.</p>
-                            <Link href="/admin" className="text-sm font-semibold text-red-500 hover:text-red-400 flex items-center gap-2">
-                                Launch Controller
-                                <Settings className="h-4 w-4" />
-                            </Link>
-                        </div>
-                    )}
+                    {/* Sidebar Area */}
+                    <div className="space-y-8">
+                        {/* ADMIN role specific controls */}
+                        {session.user.role === 'ADMIN' && (
+                            <section className="p-8 rounded-3xl border border-red-500/20 bg-red-500/5 group hover:bg-red-500/10 transition-all">
+                                <div className="p-3 bg-red-500/10 rounded-xl w-fit mb-6">
+                                    <Shield className="h-6 w-6 text-red-500" />
+                                </div>
+                                <h3 className="text-xl font-bold text-red-500 mb-2">Admin Panel</h3>
+                                <p className="text-neutral-400 text-sm mb-6">System-wide user and challenge management.</p>
+                                <Link href="/admin" className="inline-flex items-center gap-2 bg-red-500 text-white px-6 py-2 rounded-xl font-bold hover:bg-red-400 transition-all shadow-lg shadow-red-500/10">
+                                    Controller
+                                    <Settings className="h-4 w-4" />
+                                </Link>
+                            </section>
+                        )}
+
+                        {/* Stats Summary could go here */}
+                    </div>
                 </div>
             </main>
         </div>

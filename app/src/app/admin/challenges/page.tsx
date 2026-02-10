@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { Shield, BarChart, Trash2, Edit2, Calendar, ChevronLeft, Zap, Clock } from "lucide-react"
 import { prisma } from "@/lib/prisma"
 import { revalidatePath } from "next/cache"

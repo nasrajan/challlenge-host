@@ -12,9 +12,9 @@ export default function CreateChallengePage() {
                         <div className="p-3 bg-yellow-500/10 rounded-2xl">
                             <Trophy className="h-10 w-10 text-yellow-500" />
                         </div>
-                        Design Your Challenge
+                        Create Your Challenge
                     </h1>
-                    <p className="text-neutral-400 mt-4 text-lg">Create a robust scoring system with multiple metrics, rules, and caps.</p>
+                    <p className="text-neutral-400 mt-4 text-lg">Create a robust scoring system with multiple tasks, rules, and caps.</p>
                 </header>
 
                 <ChallengeForm mode="CREATE" />

@@ -1,54 +1,45 @@
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
-}
-
 generator client {
   provider = "prisma-client-js"
 }
 
-enum UserRole {
-  USER
-  ORGANIZER
-  ADMIN
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL_UNPOOLED")
 }
 
 model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String?   @unique
-  emailVerified DateTime?
-  image         String?
-  password      String?   // For Credentials provider
-  role          UserRole  @default(USER)
-  accounts      Account[]
-  sessions      Session[]
-  
-  organizedChallenges Challenge[] @relation("OrganizedChallenges")
-  participations      Participant[]
+  id                  String          @id @default(cuid())
+  name                String?
+  email               String?         @unique
+  emailVerified       DateTime?
+  image               String?
+  password            String?
+  role                UserRole        @default(USER)
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+  accounts            Account[]
   activityLogs        ActivityLog[]
+  organizedChallenges Challenge[]     @relation("OrganizedChallenges")
+  participations      Participant[]
   scoreSnapshots      ScoreSnapshot[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  sessions            Session[]
 }
 
 model Account {
-  id                 String  @id @default(cuid())
-  userId             String
-  type               String
-  provider           String
-  providerAccountId  String
-  refresh_token      String?  @db.Text
-  access_token       String?  @db.Text
-  expires_at         Int?
-  token_type         String?
-  scope              String?
-  id_token           String?  @db.Text
-  session_state      String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
 }
@@ -62,13 +53,132 @@ model Session {
 }
 
 model VerificationToken {
-  id          String   @id @default(cuid()) // Persistence for password reset
-  identifier  String
-  token       String   @unique
-  expires     DateTime
-  createdAt   DateTime @default(now())
+  identifier String
+  token      String   @unique
+  expires    DateTime
+  createdAt  DateTime @default(now())
+  id         String   @id @default(cuid())
 
   @@unique([identifier, token])
+}
+
+model Challenge {
+  id               String            @id @default(cuid())
+  name             String
+  description      String?
+  startDate        DateTime
+  endDate          DateTime
+  status           ChallengeStatus   @default(UPCOMING)
+  organizerId      String
+  isPublic         Boolean           @default(true)
+  maxParticipants  Int?
+  requiresApproval Boolean           @default(false)
+  showLeaderboard  Boolean           @default(true)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  activityLogs     ActivityLog[]
+  organizer        User              @relation("OrganizedChallenges", fields: [organizerId], references: [id])
+  metrics          ChallengeMetric[]
+  participants     Participant[]
+}
+
+model ChallengeMetric {
+  id                 String            @id @default(cuid())
+  challengeId        String
+  name               String
+  unit               String
+  aggregationMethod  AggregationMethod @default(SUM)
+  scoringFrequency   ScoringFrequency  @default(DAILY)
+  maxPointsPerPeriod Float?
+  maxPointsTotal     Float?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  activityLogs       ActivityLog[]
+  challenge          Challenge         @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  qualifiers         MetricQualifier[]
+  scoreSnapshots     ScoreSnapshot[]
+  scoringRules       ScoringRule[]
+}
+
+model MetricQualifier {
+  id           String          @id @default(cuid())
+  metricId     String
+  value        String
+  activityLogs ActivityLog[]
+  metric       ChallengeMetric @relation(fields: [metricId], references: [id], onDelete: Cascade)
+  scoringRules ScoringRule[]
+
+  @@unique([metricId, value])
+}
+
+model ScoringRule {
+  id             String           @id @default(cuid())
+  metricId       String
+  qualifierId    String?
+  comparisonType ComparisonType   @default(RANGE)
+  minValue       Float?
+  maxValue       Float?
+  points         Float
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  metric         ChallengeMetric  @relation(fields: [metricId], references: [id], onDelete: Cascade)
+  qualifier      MetricQualifier? @relation(fields: [qualifierId], references: [id])
+}
+
+model Participant {
+  id          String            @id @default(cuid())
+  userId      String
+  challengeId String
+  joinedAt    DateTime          @default(now())
+  status      ParticipantStatus @default(PENDING)
+  challenge   Challenge         @relation(fields: [challengeId], references: [id])
+  user        User              @relation(fields: [userId], references: [id])
+
+  @@unique([userId, challengeId])
+}
+
+model ActivityLog {
+  id          String           @id @default(cuid())
+  userId      String
+  challengeId String
+  date        DateTime
+  value       Float
+  evidenceUrl String?
+  notes       String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  metricId    String
+  qualifierId String?
+  challenge   Challenge        @relation(fields: [challengeId], references: [id])
+  metric      ChallengeMetric  @relation(fields: [metricId], references: [id])
+  qualifier   MetricQualifier? @relation(fields: [qualifierId], references: [id])
+  user        User             @relation(fields: [userId], references: [id])
+
+  @@index([userId, challengeId, metricId])
+}
+
+model ScoreSnapshot {
+  id           String          @id @default(cuid())
+  userId       String
+  challengeId  String
+  metricId     String
+  periodStart  DateTime
+  periodEnd    DateTime
+  rawPoints    Float
+  cappedPoints Float
+  totalPoints  Float
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  metric       ChallengeMetric @relation(fields: [metricId], references: [id])
+  user         User            @relation(fields: [userId], references: [id])
+
+  @@index([userId, challengeId, metricId])
+}
+
+enum UserRole {
+  USER
+  ORGANIZER
+  ADMIN
 }
 
 enum ChallengeStatus {
@@ -80,10 +190,10 @@ enum ChallengeStatus {
 
 enum AggregationMethod {
   SUM
-  COUNT
+  AVERAGE
   MAX
   MIN
-  AVERAGE
+  COUNT
 }
 
 enum ScoringFrequency {
@@ -98,144 +208,9 @@ enum ComparisonType {
   GREATER_THAN_EQUAL
 }
 
-model Challenge {
-  id          String    @id @default(cuid())
-  name        String
-  description String?   @db.Text
-  startDate   DateTime
-  endDate     DateTime
-  status      ChallengeStatus @default(UPCOMING)
-  
-  organizerId String
-  organizer   User      @relation("OrganizedChallenges", fields: [organizerId], references: [id])
-  
-  isPublic    Boolean   @default(true)
-  maxParticipants Int?
-  requiresApproval Boolean @default(false)
-  showLeaderboard Boolean @default(true)
-
-  // Relations
-  metrics      ChallengeMetric[]
-  participants Participant[]
-  activityLogs ActivityLog[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model ChallengeMetric {
-  id                String            @id @default(cuid())
-  challengeId       String
-  challenge         Challenge         @relation(fields: [challengeId], references: [id], onDelete: Cascade)
-  
-  name              String            // e.g. "Steps", "Workout"
-  unit              String            // e.g. "steps", "minutes"
-  aggregationMethod AggregationMethod @default(SUM)
-  scoringFrequency  ScoringFrequency  @default(DAILY)
-  
-  maxPointsPerPeriod Float?
-  maxPointsTotal     Float?
-
-  qualifiers   MetricQualifier[]
-  scoringRules ScoringRule[]
-  activityLogs ActivityLog[]
-  scoreSnapshots ScoreSnapshot[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model MetricQualifier {
-  id        String          @id @default(cuid())
-  metricId  String
-  metric    ChallengeMetric @relation(fields: [metricId], references: [id], onDelete: Cascade)
-  
-  value     String          // e.g. "WALK", "RUN", "INDOOR"
-  
-  scoringRules ScoringRule[]
-  activityLogs ActivityLog[]
-
-  @@unique([metricId, value])
-}
-
-model ScoringRule {
-  id          String          @id @default(cuid())
-  metricId    String
-  metric      ChallengeMetric @relation(fields: [metricId], references: [id], onDelete: Cascade)
-  
-  qualifierId String?
-  qualifier   MetricQualifier? @relation(fields: [qualifierId], references: [id])
-  
-  comparisonType ComparisonType @default(RANGE)
-  minValue       Float?
-  maxValue       Float? // used for RANGE
-  points         Float
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
 enum ParticipantStatus {
   PENDING
   APPROVED
   REJECTED
   REVOKED
-}
-
-model Participant {
-  id          String    @id @default(cuid())
-  userId      String
-  challengeId String
-  joinedAt    DateTime  @default(now())
-  status      ParticipantStatus @default(PENDING)
-  
-  user        User      @relation(fields: [userId], references: [id])
-  challenge   Challenge @relation(fields: [challengeId], references: [id])
-
-  @@unique([userId, challengeId])
-}
-
-model ActivityLog {
-  id          String    @id @default(cuid())
-  userId      String
-  challengeId String
-  metricId    String
-  qualifierId String?
-  
-  date        DateTime
-  value       Float
-  evidenceUrl String?
-  notes       String?
-
-  user        User            @relation(fields: [userId], references: [id])
-  challenge   Challenge       @relation(fields: [challengeId], references: [id])
-  metric      ChallengeMetric @relation(fields: [metricId], references: [id])
-  qualifier   MetricQualifier? @relation(fields: [qualifierId], references: [id])
-
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@index([userId, challengeId, metricId])
-}
-
-model ScoreSnapshot {
-  id          String    @id @default(cuid())
-  userId      String
-  challengeId String
-  metricId    String
-  
-  periodStart DateTime
-  periodEnd   DateTime
-  
-  rawPoints     Float
-  cappedPoints  Float
-  totalPoints   Float // Cumulative points up to this snapshot for the user/metric
-
-  user        User            @relation(fields: [userId], references: [id])
-  metric      ChallengeMetric @relation(fields: [metricId], references: [id])
-
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@index([userId, challengeId, metricId])
 }

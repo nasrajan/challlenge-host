@@ -24,9 +24,9 @@ export default async function AdminUsersPage() {
                 <section className="bg-neutral-900 rounded-2xl border border-neutral-800 overflow-hidden shadow-2xl">
                     <div className="px-6 py-4 border-b border-neutral-800 bg-neutral-900/50 flex items-center justify-between">
                         <h2 className="text-xl font-semibold flex items-center gap-2">
-                            Detected Personnel
+                            Users
                         </h2>
-                        <span className="text-xs font-black uppercase tracking-widest text-neutral-500 bg-neutral-950 px-3 py-1 rounded-full border border-neutral-800">
+                        <span className="text-xs font-black tracking-widest text-neutral-500 bg-neutral-950 px-3 py-1 rounded-full border border-neutral-800">
                             {users.length} total
                         </span>
                     </div>
@@ -34,7 +34,7 @@ export default async function AdminUsersPage() {
                     <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse">
                             <thead>
-                                <tr className="text-neutral-500 text-[10px] font-black uppercase tracking-widest border-b border-neutral-800">
+                                <tr className="text-neutral-500 text-[10px] font-black  tracking-widest border-b border-neutral-800">
                                     <th className="px-6 py-4">User</th>
                                     <th className="px-6 py-4">Role</th>
                                     <th className="px-6 py-4">Joined</th>

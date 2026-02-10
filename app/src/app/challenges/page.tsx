@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import Link from "next/link"
 import { Trophy, Calendar, Users, ChevronRight, Filter } from "lucide-react"
+import { joinChallenge } from "@/app/actions/challenges"
 
 export default async function ChallengesExplorePage() {
     const session = await getServerSession(authOptions)
@@ -13,7 +14,13 @@ export default async function ChallengesExplorePage() {
             metrics: true,
             _count: {
                 select: { participants: true }
-            }
+            },
+            ...(session ? {
+                participants: {
+                    where: { userId: session.user.id },
+                    select: { id: true }
+                }
+            } : {})
         },
         orderBy: { startDate: 'desc' }
     })
@@ -44,15 +51,15 @@ export default async function ChallengesExplorePage() {
                             </div>
 
                             <div className="p-6 pt-10 flex-1 flex flex-col">
-                                <h3 className="text-xl font-bold mb-2 group-hover:text-yellow-500 transition-colors uppercase tracking-tight">{challenge.name}</h3>
+                                <h3 className="text-xl font-bold mb-2 group-hover:text-yellow-500 transition-colors tracking-tight">{challenge.name}</h3>
                                 <p className="text-neutral-400 text-sm line-clamp-2 mb-6">{challenge.description}</p>
 
                                 <div className="space-y-3 mb-8 flex-1">
-                                    <div className="flex items-center gap-2 text-xs text-neutral-500 font-bold uppercase tracking-wider">
+                                    <div className="flex items-center gap-2 text-xs text-neutral-500 font-bold tracking-wider">
                                         <Calendar className="h-4 w-4" />
                                         {new Date(challenge.startDate).toLocaleDateString()} — {new Date(challenge.endDate).toLocaleDateString()}
                                     </div>
-                                    <div className="flex items-center gap-2 text-xs text-neutral-500 font-bold uppercase tracking-wider">
+                                    <div className="flex items-center gap-2 text-xs text-neutral-500 font-bold tracking-wider">
                                         <Users className="h-4 w-4" />
                                         {challenge._count.participants} Participants
                                     </div>
@@ -60,19 +67,33 @@ export default async function ChallengesExplorePage() {
 
                                 <div className="flex flex-wrap gap-2 mb-6">
                                     {challenge.metrics.map(m => (
-                                        <span key={m.id} className="text-[10px] font-black bg-neutral-800 text-neutral-400 px-3 py-1 rounded-full border border-neutral-700 uppercase">
+                                        <span key={m.id} className="text-[10px] font-black bg-neutral-800 text-neutral-400 px-3 py-1 rounded-full border border-neutral-700">
                                             {m.name}
                                         </span>
                                     ))}
                                 </div>
 
-                                <Link
-                                    href={`/challenges/${challenge.id}`}
-                                    className="w-full bg-neutral-800 hover:bg-yellow-500 hover:text-neutral-950 transition-all py-3 rounded-2xl font-bold text-center flex items-center justify-center gap-2"
-                                >
-                                    View Details
-                                    <ChevronRight className="h-4 w-4" />
-                                </Link>
+                                <div className="space-y-3">
+                                    {session && challenge.participants?.length === 0 && (
+                                        <form action={joinChallenge.bind(null, challenge.id)}>
+                                            <button className="w-full bg-yellow-500 text-neutral-950 py-3 rounded-2xl font-bold hover:bg-yellow-400 transition-all shadow-lg shadow-yellow-500/20 active:scale-95">
+                                                Join the Challenge
+                                            </button>
+                                        </form>
+                                    )}
+                                    {session && challenge.participants?.length > 0 && (
+                                        <div className="w-full bg-neutral-800 text-neutral-400 py-3 rounded-2xl font-bold text-center border border-neutral-700">
+                                            Joined
+                                        </div>
+                                    )}
+                                    <Link
+                                        href={`/challenges/${challenge.id}`}
+                                        className="w-full bg-neutral-800 hover:bg-yellow-500 hover:text-neutral-950 transition-all py-3 rounded-2xl font-bold text-center flex items-center justify-center gap-2"
+                                    >
+                                        View Details
+                                        <ChevronRight className="h-4 w-4" />
+                                    </Link>
+                                </div>
                             </div>
                         </div>
                     ))}

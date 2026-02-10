@@ -8,10 +8,11 @@ import {
     BarChart,
     Plus,
     Trash2,
-    Info
+    Info,
+    Users
 } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { useState } from "react"
+import { memo, useCallback, useEffect, useMemo, useState } from "react"
 import {
     AggregationMethod,
     ScoringFrequency,
@@ -58,9 +59,10 @@ export default function ChallengeForm({ initialData, mode }: ChallengeFormProps)
     const router = useRouter()
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    const [lastAddedMetricId, setLastAddedMetricId] = useState<string | null>(null)
 
     // Map initial metrics if they exist
-    const defaultMetrics: Metric[] = initialData?.metrics.map(m => ({
+    const defaultMetrics: Metric[] = useMemo(() => initialData?.metrics.map(m => ({
         id: m.id || Math.random().toString(36).substr(2, 9),
         name: m.name,
         unit: m.unit,
@@ -77,32 +79,33 @@ export default function ChallengeForm({ initialData, mode }: ChallengeFormProps)
             qualifierValue: "NONE"
         }]
     })) || [
-            {
-                id: Math.random().toString(36).substr(2, 9),
-                name: "",
-                unit: "",
-                aggregationMethod: "SUM",
-                scoringFrequency: "DAILY",
-                maxPointsPerPeriod: null,
-                maxPointsTotal: null,
-                qualifiers: [],
-                scoringRules: [{
-                    comparisonType: "GREATER_THAN_EQUAL",
-                    minValue: 0,
-                    maxValue: null,
-                    points: 1,
-                    qualifierValue: "NONE"
-                }]
-            }
-        ]
+        {
+            id: Math.random().toString(36).substr(2, 9),
+            name: "",
+            unit: "",
+            aggregationMethod: "SUM",
+            scoringFrequency: "DAILY",
+            maxPointsPerPeriod: null,
+            maxPointsTotal: null,
+            qualifiers: [],
+            scoringRules: [{
+                comparisonType: "GREATER_THAN_EQUAL",
+                minValue: 0,
+                maxValue: null,
+                points: 1,
+                qualifierValue: "NONE"
+            }]
+        }
+    ], [initialData])
 
     const [metrics, setMetrics] = useState<Metric[]>(defaultMetrics)
 
-    const addMetric = () => {
-        setMetrics([
-            ...metrics,
+    const addMetric = useCallback(() => {
+        const newId = Math.random().toString(36).substr(2, 9)
+        setMetrics((prev) => [
+            ...prev,
             {
-                id: Math.random().toString(36).substr(2, 9),
+                id: newId,
                 name: "",
                 unit: "",
                 aggregationMethod: "SUM",
@@ -119,15 +122,27 @@ export default function ChallengeForm({ initialData, mode }: ChallengeFormProps)
                 }]
             }
         ])
-    }
+        setLastAddedMetricId(newId)
+    }, [])
 
-    const removeMetric = (id: string) => {
-        setMetrics(metrics.filter(m => m.id !== id))
-    }
+    const removeMetric = useCallback((id: string) => {
+        setMetrics((prev) => prev.filter(m => m.id !== id))
+    }, [])
 
-    const updateMetric = (id: string, updates: Partial<Metric>) => {
-        setMetrics(metrics.map(m => m.id === id ? { ...m, ...updates } : m))
-    }
+    const updateMetric = useCallback((id: string, updates: Partial<Metric>) => {
+        setMetrics((prev) => prev.map(m => m.id === id ? { ...m, ...updates } : m))
+    }, [])
+
+    useEffect(() => {
+        if (!lastAddedMetricId) return
+        const el = document.getElementById(`metric-${lastAddedMetricId}`)
+        if (el) {
+            requestAnimationFrame(() => {
+                el.scrollIntoView({ behavior: "smooth", block: "start" })
+            })
+        }
+        setLastAddedMetricId(null)
+    }, [lastAddedMetricId, metrics])
 
     async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault()
@@ -170,12 +185,12 @@ export default function ChallengeForm({ initialData, mode }: ChallengeFormProps)
             <section className="bg-neutral-900 border border-neutral-800 rounded-3xl p-8 space-y-8 shadow-xl">
                 <div className="flex items-center gap-3 text-2xl font-bold text-neutral-100">
                     <Settings className="h-6 w-6 text-neutral-400" />
-                    Mission Parameters
+                    Challenge Details
                 </div>
 
                 <div className="grid gap-8">
                     <div className="grid gap-2">
-                        <label className="text-sm font-semibold text-neutral-400 uppercase tracking-wider">Mission Name</label>
+                        <label className="text-sm font-semibold text-neutral-400">Challenge Name</label>
                         <input
                             name="name"
                             required
@@ -186,18 +201,18 @@ export default function ChallengeForm({ initialData, mode }: ChallengeFormProps)
                     </div>
 
                     <div className="grid gap-2">
-                        <label className="text-sm font-semibold text-neutral-400 uppercase tracking-wider">Objective Description</label>
+                        <label className="text-sm font-semibold text-neutral-400">Description</label>
                         <textarea
                             name="description"
                             defaultValue={initialData?.description || ""}
                             className="w-full bg-neutral-800/50 border border-neutral-700/50 rounded-xl px-6 py-4 text-neutral-100 focus:ring-2 focus:ring-yellow-500 outline-none h-32 transition-all"
-                            placeholder="Detail the mission objectives..."
+                            placeholder="Detail the challenge objectives..."
                         />
                     </div>
 
                     <div className="grid sm:grid-cols-2 gap-8">
                         <div className="grid gap-2">
-                            <label className="text-sm font-semibold text-neutral-400 uppercase tracking-wider">Start Window</label>
+                            <label className="text-sm font-semibold text-neutral-400">Start Date</label>
                             <input
                                 name="startDate"
                                 type="date"
@@ -207,7 +222,7 @@ export default function ChallengeForm({ initialData, mode }: ChallengeFormProps)
                             />
                         </div>
                         <div className="grid gap-2">
-                            <label className="text-sm font-semibold text-neutral-400 uppercase tracking-wider">End Window</label>
+                            <label className="text-sm font-semibold text-neutral-400">End Date</label>
                             <input
                                 name="endDate"
                                 type="date"
@@ -220,12 +235,79 @@ export default function ChallengeForm({ initialData, mode }: ChallengeFormProps)
                 </div>
             </section>
 
+            {/* Section: Visibility & Access */}
+            <section className="bg-neutral-900 border border-neutral-800 rounded-3xl p-8 space-y-8 shadow-xl">
+                <div className="flex items-center gap-3 text-2xl font-bold text-neutral-100">
+                    <Users className="h-6 w-6 text-neutral-400" />
+                    Visibility & Access
+                </div>
+
+                <div className="grid gap-8">
+                    <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <label className="flex items-center gap-3 p-4 bg-neutral-800/30 border border-neutral-700/50 rounded-2xl cursor-pointer hover:bg-neutral-800/50 transition-all">
+                            <input
+                                type="checkbox"
+                                name="isPublic"
+                                value="true"
+                                defaultChecked={initialData ? initialData.isPublic : true}
+                                className="h-5 w-5 rounded border-neutral-700 bg-neutral-900 text-yellow-500 focus:ring-yellow-500/20"
+                            />
+                            <div>
+                                <div className="font-bold text-neutral-100">Public Access</div>
+                                <div className="text-xs text-neutral-500">Visible to everyone</div>
+                            </div>
+                        </label>
+
+                        <label className="flex items-center gap-3 p-4 bg-neutral-800/30 border border-neutral-700/50 rounded-2xl cursor-pointer hover:bg-neutral-800/50 transition-all">
+                            <input
+                                type="checkbox"
+                                name="requiresApproval"
+                                value="true"
+                                defaultChecked={initialData ? initialData.requiresApproval : false}
+                                className="h-5 w-5 rounded border-neutral-700 bg-neutral-900 text-yellow-500 focus:ring-yellow-500/20"
+                            />
+                            <div>
+                                <div className="font-bold text-neutral-100">Require Approval</div>
+                                <div className="text-xs text-neutral-500">Manual participant approval</div>
+                            </div>
+                        </label>
+
+                        <label className="flex items-center gap-3 p-4 bg-neutral-800/30 border border-neutral-700/50 rounded-2xl cursor-pointer hover:bg-neutral-800/50 transition-all">
+                            <input
+                                type="checkbox"
+                                name="showLeaderboard"
+                                value="true"
+                                defaultChecked={initialData ? initialData.showLeaderboard : true}
+                                className="h-5 w-5 rounded border-neutral-700 bg-neutral-900 text-yellow-500 focus:ring-yellow-500/20"
+                            />
+                            <div>
+                                <div className="font-bold text-neutral-100">Show Leaderboard</div>
+                                <div className="text-xs text-neutral-500">Public ranking visible</div>
+                            </div>
+                        </label>
+                    </div>
+
+                    <div className="grid gap-2 max-w-sm">
+                        <label className="text-sm font-semibold text-neutral-400">Max Participants</label>
+                        <input
+                            name="maxParticipants"
+                            type="number"
+                            min="1"
+                            placeholder="Unlimited"
+                            defaultValue={initialData?.maxParticipants || ""}
+                            className="w-full bg-neutral-800/50 border border-neutral-700/50 rounded-xl px-6 py-4 text-neutral-100 focus:ring-2 focus:ring-yellow-500 outline-none transition-all"
+                        />
+                    </div>
+                </div>
+            </section>
+
+
             {/* Section 2: Multi-Metric Config */}
             <div className="space-y-6">
                 <div className="flex items-center justify-between px-2">
                     <h2 className="text-2xl font-bold flex items-center gap-3 text-neutral-100">
                         <BarChart className="h-6 w-6 text-neutral-400" />
-                        Scoring Core
+                        Scoring Criteria
                     </h2>
                     <button
                         type="button"
@@ -233,7 +315,7 @@ export default function ChallengeForm({ initialData, mode }: ChallengeFormProps)
                         className="flex items-center gap-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-100 px-4 py-2 rounded-xl border border-neutral-700 transition-all font-semibold"
                     >
                         <Plus className="h-5 w-5" />
-                        Add Metric
+                        Add Task
                     </button>
                 </div>
 
@@ -257,21 +339,21 @@ export default function ChallengeForm({ initialData, mode }: ChallengeFormProps)
                     onClick={() => router.back()}
                     className="text-neutral-400 hover:text-white font-semibold transition-colors"
                 >
-                    Abort Changes
+                    Cancel
                 </button>
                 <button
                     disabled={loading || metrics.length === 0}
                     type="submit"
-                    className="px-10 py-4 rounded-2xl bg-yellow-500 text-neutral-950 font-bold text-lg hover:bg-yellow-400 transition-all shadow-xl shadow-yellow-500/10 active:scale-95 disabled:opacity-50"
+                    className="px-5 py-1 rounded-2xl bg-yellow-500 text-neutral-950 font-bold text-lg hover:bg-yellow-400 transition-all shadow-xl shadow-yellow-500/10 active:scale-95 disabled:opacity-50"
                 >
-                    {loading ? "Synchronizing..." : mode === 'EDIT' ? "Update Mission" : "Deploy Mission"}
+                    {loading ? "Saving..." : "Save"}
                 </button>
             </div>
         </form>
     )
 }
 
-function MetricEditor({
+const MetricEditor = memo(function MetricEditor({
     metric,
     mIdx,
     updateMetric,
@@ -283,11 +365,14 @@ function MetricEditor({
     removeMetric: () => void
 }) {
     return (
-        <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-8 space-y-8 relative overflow-hidden group shadow-lg">
+        <div
+            id={`metric-${metric.id}`}
+            className="bg-neutral-900 border border-neutral-800 rounded-3xl p-8 space-y-8 relative overflow-hidden group shadow-lg"
+        >
             <div className="absolute top-0 left-0 w-2 h-full bg-yellow-500/50" />
 
             <div className="flex items-start justify-between">
-                <div className="text-xs font-black text-neutral-700 uppercase tracking-widest mb-2 font-mono">Metric_{mIdx + 1}</div>
+                <div className="text-xs font-black text-neutral-700 tracking-widest mb-2 font-mono">Task_{mIdx + 1}</div>
                 <button
                     type="button"
                     onClick={removeMetric}
@@ -299,7 +384,7 @@ function MetricEditor({
 
             <div className="grid sm:grid-cols-2 gap-8">
                 <div className="grid gap-2">
-                    <label className="text-sm font-semibold text-neutral-400 uppercase tracking-wider">Descriptor</label>
+                    <label className="text-sm font-semibold text-neutral-400 tracking-wider">Task Descriptor</label>
                     <input
                         value={metric.name}
                         onChange={(e) => updateMetric({ name: e.target.value })}
@@ -308,7 +393,7 @@ function MetricEditor({
                     />
                 </div>
                 <div className="grid gap-2">
-                    <label className="text-sm font-semibold text-neutral-400 uppercase tracking-wider">Unit</label>
+                    <label className="text-sm font-semibold text-neutral-400 tracking-wider">Unit</label>
                     <input
                         value={metric.unit}
                         onChange={(e) => updateMetric({ unit: e.target.value })}
@@ -317,7 +402,7 @@ function MetricEditor({
                     />
                 </div>
                 <div className="grid gap-2">
-                    <label className="text-sm font-semibold text-neutral-400 uppercase tracking-wider">Aggregation</label>
+                    <label className="text-sm font-semibold text-neutral-400 tracking-wider">Aggregation</label>
                     <select
                         value={metric.aggregationMethod}
                         onChange={(e) => updateMetric({ aggregationMethod: e.target.value as AggregationMethod })}
@@ -331,7 +416,7 @@ function MetricEditor({
                     </select>
                 </div>
                 <div className="grid gap-2">
-                    <label className="text-sm font-semibold text-neutral-400 uppercase tracking-wider">Frequency</label>
+                    <label className="text-sm font-semibold text-neutral-400 tracking-wider">Frequency</label>
                     <select
                         value={metric.scoringFrequency}
                         onChange={(e) => updateMetric({ scoringFrequency: e.target.value as ScoringFrequency })}
@@ -346,8 +431,8 @@ function MetricEditor({
 
             <div className="grid sm:grid-cols-2 gap-8 bg-neutral-950/50 p-6 rounded-2xl border border-neutral-800/50">
                 <div className="grid gap-2">
-                    <label className="text-xs font-bold text-neutral-500 uppercase flex items-center gap-2">
-                        Window Cap (Period)
+                    <label className="text-xs font-bold text-neutral-500 flex items-center gap-2">
+                        Cap for the Score Period
                     </label>
                     <input
                         type="number"
@@ -358,7 +443,7 @@ function MetricEditor({
                     />
                 </div>
                 <div className="grid gap-2">
-                    <label className="text-xs font-bold text-neutral-500 uppercase">Mission Cap (Total)</label>
+                    <label className="text-xs font-bold text-neutral-500">Cap for the Total Duration</label>
                     <input
                         type="number"
                         value={metric.maxPointsTotal || ""}
@@ -371,7 +456,7 @@ function MetricEditor({
 
             <div className="space-y-4 pt-4 border-t border-neutral-800/50">
                 <div className="flex items-center justify-between">
-                    <h4 className="text-sm font-bold text-neutral-100 uppercase tracking-widest font-mono">Scoring_Rules</h4>
+                    <h4 className="text-sm font-bold text-neutral-100">Scoring Rules</h4>
                     <button
                         type="button"
                         onClick={() => updateMetric({
@@ -393,7 +478,7 @@ function MetricEditor({
                     {metric.scoringRules.map((rule, rIdx) => (
                         <div key={rIdx} className="grid sm:grid-cols-5 gap-3 items-end bg-neutral-800/30 p-4 rounded-xl border border-neutral-800/50">
                             <div className="grid gap-1">
-                                <label className="text-[10px] font-bold text-neutral-500 uppercase">Condition</label>
+                                <label className="text-[10px] font-bold text-neutral-500">Condition</label>
                                 <select
                                     value={rule.comparisonType}
                                     onChange={(e) => {
@@ -403,13 +488,13 @@ function MetricEditor({
                                     }}
                                     className="bg-neutral-800 border border-neutral-700 rounded-lg px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-yellow-500 text-neutral-200"
                                 >
-                                    <option value="RANGE">RANGE (Min-Max)</option>
-                                    <option value="GREATER_THAN_EQUAL">MIN THRESHOLD (&gt;=)</option>
-                                    <option value="GREATER_THAN">ABOVE (&gt;)</option>
+                                    <option value="RANGE">Range (Min-Max)</option>
+                                    <option value="GREATER_THAN_EQUAL">Min Score (&gt;=)</option>
+                                    <option value="GREATER_THAN">Above (&gt;)</option>
                                 </select>
                             </div>
                             <div className="grid gap-1">
-                                <label className="text-[10px] font-bold text-neutral-500 uppercase">Min</label>
+                                <label className="text-[10px] font-bold text-neutral-500">Min</label>
                                 <input
                                     type="number"
                                     value={rule.minValue || ""}
@@ -422,7 +507,7 @@ function MetricEditor({
                                 />
                             </div>
                             <div className="grid gap-1">
-                                <label className="text-[10px] font-bold text-neutral-500 uppercase">Max</label>
+                                <label className="text-[10px] font-bold text-neutral-500">Max</label>
                                 <input
                                     type="number"
                                     disabled={rule.comparisonType !== "RANGE"}
@@ -436,7 +521,7 @@ function MetricEditor({
                                 />
                             </div>
                             <div className="grid gap-1">
-                                <label className="text-[10px] font-bold text-neutral-500 uppercase">Points</label>
+                                <label className="text-[10px] font-bold text-neutral-500">Points</label>
                                 <input
                                     type="number"
                                     value={rule.points}
@@ -464,4 +549,4 @@ function MetricEditor({
             </div>
         </div>
     )
-}
+})

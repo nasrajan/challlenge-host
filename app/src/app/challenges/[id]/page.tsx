@@ -11,7 +11,9 @@ import {
     CheckCircle2,
     ChevronRight,
     User as UserIcon,
-    Crown
+    Crown,
+    FileText,
+    ExternalLink
 } from "lucide-react"
 import { joinChallenge } from "@/app/actions/challenges"
 
@@ -81,12 +83,21 @@ export default async function ChallengeDetailPage({ params }: { params: Promise<
                 <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/10 to-transparent pointer-events-none" />
                 <div className="container mx-auto px-6 py-16 relative">
                     <div className="max-w-4xl">
-                        <div className="flex items-center gap-3 text-yellow-500 font-bold uppercase tracking-widest text-xs mb-4">
+                        <Link
+                            href="/challenges"
+                            className="inline-flex items-center gap-2 text-xs font-bold text-neutral-400 hover:text-yellow-500 transition-colors mb-6"
+                        >
+                            <ChevronRight className="h-4 w-4 rotate-180" />
+                            Back to Challenges
+                        </Link>
+                        <div className="flex items-center gap-3 text-yellow-500 font-bold tracking-widest text-xs mb-4">
                             <Trophy className="h-4 w-4" />
-                            Live Challenge
+                            Live Challenges
                         </div>
                         <h1 className="text-5xl font-black mb-6 tracking-tight">{challenge.name}</h1>
-                        <p className="text-xl text-neutral-400 mb-8 max-w-2xl leading-relaxed">{challenge.description}</p>
+                        <p className="text-xl text-neutral-400 mb-8 max-w-2xl leading-relaxed whitespace-pre-wrap">
+                            {challenge.description}
+                        </p>
 
                         <div className="flex flex-wrap gap-8 items-center">
                             <div className="flex items-center gap-3">
@@ -94,7 +105,7 @@ export default async function ChallengeDetailPage({ params }: { params: Promise<
                                     <Calendar className="h-5 w-5 text-neutral-400" />
                                 </div>
                                 <div>
-                                    <div className="text-[10px] font-black text-neutral-500 uppercase">Duration</div>
+                                    <div className="text-[10px] font-black text-neutral-500">Duration</div>
                                     <div className="text-sm font-bold">
                                         {new Date(challenge.startDate).toLocaleDateString()} — {new Date(challenge.endDate).toLocaleDateString()}
                                     </div>
@@ -105,7 +116,7 @@ export default async function ChallengeDetailPage({ params }: { params: Promise<
                                     <Users className="h-5 w-5 text-neutral-400" />
                                 </div>
                                 <div>
-                                    <div className="text-[10px] font-black text-neutral-500 uppercase">Participants</div>
+                                    <div className="text-[10px] font-bold text-neutral-500">Participants</div>
                                     <div className="text-sm font-bold">{challenge._count.participants} Joined</div>
                                 </div>
                             </div>
@@ -113,7 +124,7 @@ export default async function ChallengeDetailPage({ params }: { params: Promise<
                             {!isParticipant && session && (
                                 <form action={joinChallenge.bind(null, challenge.id)}>
                                     <button className="bg-yellow-500 text-neutral-950 px-8 py-3 rounded-2xl font-black hover:bg-yellow-400 transition-all shadow-xl shadow-yellow-500/20 active:scale-95">
-                                        Join Mission
+                                        Join the Challenge
                                     </button>
                                 </form>
                             )}
@@ -126,7 +137,7 @@ export default async function ChallengeDetailPage({ params }: { params: Promise<
                 {/* Left Column: Metrics & Rules */}
                 <div className="lg:col-span-1 space-y-12">
                     <section>
-                        <h2 className="text-sm font-black text-neutral-500 uppercase tracking-[0.2em] mb-8 border-l-2 border-yellow-500 pl-4">Scoring Infrastructure</h2>
+                        <h2 className="text-sm font-bold text-neutral-500 mb-8 border-l-2 border-yellow-500 pl-4">Scoring Infrastructure</h2>
                         <div className="space-y-6">
                             {challenge.metrics.map(m => (
                                 <div key={m.id} className="bg-neutral-900/50 border border-neutral-800 rounded-3xl p-6 hover:bg-neutral-900 transition-all">
@@ -145,7 +156,7 @@ export default async function ChallengeDetailPage({ params }: { params: Promise<
                                             </div>
                                         ))}
                                         <div className="pt-3 border-t border-neutral-800 mt-2 flex items-center justify-between">
-                                            <div className="text-[10px] font-black text-neutral-700 uppercase">Aggregation</div>
+                                            <div className="text-[10px] font-bold text-neutral-700">Aggregation</div>
                                             <div className="text-xs font-bold text-neutral-400">{m.aggregationMethod} / {m.scoringFrequency}</div>
                                         </div>
                                     </div>
@@ -153,6 +164,7 @@ export default async function ChallengeDetailPage({ params }: { params: Promise<
                             ))}
                         </div>
                     </section>
+
                 </div>
 
                 {/* Right Column: Leaderboard */}
@@ -182,7 +194,7 @@ export default async function ChallengeDetailPage({ params }: { params: Promise<
                                         <h4 className="font-bold text-lg">{user.name}</h4>
                                         <div className="flex gap-4 mt-1">
                                             {user.metricScores.map(ms => (
-                                                <div key={ms.name} className="text-[10px] font-bold text-neutral-500 uppercase">
+                                                <div key={ms.name} className="text-[10px] font-bold text-neutral-500">
                                                     {ms.name}: <span className="text-neutral-300">{ms.score}</span>
                                                 </div>
                                             ))}
@@ -191,7 +203,7 @@ export default async function ChallengeDetailPage({ params }: { params: Promise<
 
                                     <div className="text-right">
                                         <div className="text-2xl font-black text-white">{user.totalScore}</div>
-                                        <div className="text-[10px] font-black text-neutral-500 uppercase tracking-widest">Total Pts</div>
+                                        <div className="text-[10px] font-bold text-neutral-500">Total Pts</div>
                                     </div>
                                 </div>
                             ))}
@@ -208,6 +220,10 @@ export default async function ChallengeDetailPage({ params }: { params: Promise<
             </main>
         </div>
     )
+}
+
+function LinkIcon({ className }: { className?: string }) {
+    return <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>
 }
 
 function Activity({ className }: { className?: string }) {

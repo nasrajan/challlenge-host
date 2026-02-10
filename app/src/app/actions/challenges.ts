@@ -7,7 +7,8 @@ import {
     ChallengeStatus,
     AggregationMethod,
     ScoringFrequency,
-    ComparisonType
+    ComparisonType,
+    Prisma
 } from "@prisma/client"
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
@@ -29,58 +30,55 @@ export async function createChallenge(formData: FormData) {
     const showLeaderboard = formData.get("showLeaderboard") === "true"
     const maxParticipants = formData.get("maxParticipants") ? parseInt(formData.get("maxParticipants") as string) : null
 
-    // Complexity: Parsing multiple metrics from FormData
-    // For simplicity in the initial refactor, we'll assume a JSON blob for the metrics
-    // OR we can parse fields like metrics_json if provided by the UI.
     const metricsDataJson = formData.get("metricsData") as string
     const metricsData = JSON.parse(metricsDataJson || "[]")
 
     try {
-        const challenge = await prisma.challenge.create({
-            data: {
-                name,
-                description,
-                startDate,
-                endDate,
-                isPublic,
-                requiresApproval,
-                showLeaderboard,
-                maxParticipants,
-                organizerId: session.user.id,
-                status: "UPCOMING",
-                metrics: {
-                    create: metricsData.map((m: any) => ({
-                        name: m.name,
-                        unit: m.unit,
-                        aggregationMethod: m.aggregationMethod,
-                        scoringFrequency: m.scoringFrequency,
-                        maxPointsPerPeriod: m.maxPointsPerPeriod,
-                        maxPointsTotal: m.maxPointsTotal,
-                        qualifiers: {
-                            create: (m.qualifiers || []).map((q: any) => ({
-                                value: q.value,
-                            }))
-                        },
-                        scoringRules: {
-                            create: (m.scoringRules || []).map((r: any) => ({
-                                qualifierId: undefined, // Will be linked later if needed, or matched by value
-                                // For now, simpler: qualifiers are pre-created, but rules might reference them.
-                                // To handle this in one create, we might need a more complex nested structure or separate calls.
-                                // For this refactor, we'll assume rules might have a qualifierValue instead of ID in the interim JSON.
-                                comparisonType: r.comparisonType,
-                                minValue: r.minValue,
-                                maxValue: r.maxValue,
-                                points: r.points,
-                            }))
-                        }
-                    }))
+        const challengeData: Prisma.ChallengeCreateInput = {
+            name,
+            description,
+            startDate,
+            endDate,
+            isPublic,
+            requiresApproval,
+            showLeaderboard,
+            maxParticipants,
+            organizer: { connect: { id: session.user.id } },
+            status: "UPCOMING",
+            participants: {
+                create: {
+                    userId: session.user.id,
+                    status: "APPROVED"
                 }
+            },
+            metrics: {
+                create: metricsData.map((m: any) => ({
+                    name: m.name,
+                    unit: m.unit,
+                    aggregationMethod: m.aggregationMethod,
+                    scoringFrequency: m.scoringFrequency,
+                    maxPointsPerPeriod: m.maxPointsPerPeriod,
+                    maxPointsTotal: m.maxPointsTotal,
+                    qualifiers: {
+                        create: (m.qualifiers || []).map((q: any) => ({
+                            value: q.value,
+                        }))
+                    },
+                    scoringRules: {
+                        create: (m.scoringRules || []).map((r: any) => ({
+                            comparisonType: r.comparisonType,
+                            minValue: r.minValue,
+                            maxValue: r.maxValue,
+                            points: r.points,
+                        }))
+                    }
+                }))
             }
-        })
+        }
 
-        // Note: Linking rule.qualifierId to metric.qualifier.id requires a second step 
-        // since both are created in the same transaction and IDs aren't known.
-        // However, we can use qualifier values to match them if needed.
+        const challenge = await prisma.challenge.create({
+            data: challengeData
+        })
 
         revalidatePath("/dashboard")
         revalidatePath("/challenges")
@@ -91,41 +89,65 @@ export async function createChallenge(formData: FormData) {
     }
 }
 
-export async function logActivity(formData: FormData) {
+export async function logActivities(data: {
+    challengeId: string;
+    logDate: string;
+    notes: string;
+    activities: { metricId: string; value: number }[];
+}) {
+    const session = await getServerSession(authOptions)
+    if (!session) throw new Error("Unauthorized")
+
+    const { challengeId, logDate, notes, activities } = data;
+    const date = new Date(logDate);
+
+    try {
+        await prisma.$transaction(async (tx) => {
+            for (const activity of activities) {
+                await tx.activityLog.create({
+                    data: {
+                        userId: session.user.id,
+                        challengeId,
+                        metricId: activity.metricId,
+                        value: activity.value,
+                        date,
+                        notes
+                    }
+                });
+            }
+        });
+
+        // Recalculate scores after logs are created
+        for (const activity of activities) {
+            await calculateUserScoreForMetric(session.user.id, activity.metricId);
+        }
+
+        revalidatePath(`/challenges/${challengeId}`)
+        revalidatePath("/dashboard")
+        return { success: true }
+    } catch (error) {
+        console.error("Failed to log activities:", error)
+        return { error: "Failed to log activities" }
+    }
+}
+
+/*export async function logActivity(formData: FormData) {
     const session = await getServerSession(authOptions)
     if (!session) throw new Error("Unauthorized")
 
     const challengeId = formData.get("challengeId") as string
     const metricId = formData.get("metricId") as string
-    const qualifierId = formData.get("qualifierId") as string | null
     const value = parseFloat(formData.get("value") as string)
     const date = new Date(formData.get("logDate") as string || new Date())
     const notes = formData.get("notes") as string
 
-    try {
-        const log = await prisma.activityLog.create({
-            data: {
-                userId: session.user.id,
-                challengeId,
-                metricId,
-                qualifierId: qualifierId || null,
-                value,
-                date,
-                notes
-            }
-        })
-
-        // Recalculate score for the metric
-        await calculateUserScoreForMetric(session.user.id, metricId)
-
-        revalidatePath(`/challenges/${challengeId}`)
-        revalidatePath("/dashboard")
-        return { success: true, logId: log.id }
-    } catch (error) {
-        console.error("Failed to log activity:", error)
-        return { error: "Failed to log activity" }
-    }
-}
+    return logActivities({
+        challengeId,
+        logDate: date.toISOString(),
+        notes,
+        activities: [{ metricId, value }]
+    });
+}*/
 
 export async function joinChallenge(challengeId: string) {
     const session = await getServerSession(authOptions)
@@ -171,56 +193,56 @@ export async function updateChallenge(challengeId: string, formData: FormData) {
     const metricsData = JSON.parse(metricsDataJson || "[]")
 
     try {
-        // We wrap in a transaction to ensure atomic update
         await prisma.$transaction(async (tx) => {
-            // Check if challenge exists and is UPCOMING (or allow admin to edit active if needed, but per-req "upcoming")
             const existing = await tx.challenge.findUnique({
                 where: { id: challengeId }
             })
 
             if (!existing) throw new Error("Challenge not found")
 
-            // Delete old metrics (Cascade will handle qualifiers and rules)
+            // Delete old metrics
             await tx.challengeMetric.deleteMany({
                 where: { challengeId }
             })
 
             // Update main challenge details
+            const updateData: Prisma.ChallengeUpdateInput = {
+                name,
+                description,
+                startDate,
+                endDate,
+                isPublic,
+                requiresApproval,
+                showLeaderboard,
+                maxParticipants,
+                metrics: {
+                    create: metricsData.map((m: any) => ({
+                        name: m.name,
+                        unit: m.unit,
+                        aggregationMethod: m.aggregationMethod,
+                        scoringFrequency: m.scoringFrequency,
+                        maxPointsPerPeriod: m.maxPointsPerPeriod,
+                        maxPointsTotal: m.maxPointsTotal,
+                        qualifiers: {
+                            create: (m.qualifiers || []).map((q: any) => ({
+                                value: q.value,
+                            }))
+                        },
+                        scoringRules: {
+                            create: (m.scoringRules || []).map((r: any) => ({
+                                comparisonType: r.comparisonType,
+                                minValue: r.minValue,
+                                maxValue: r.maxValue,
+                                points: r.points,
+                            }))
+                        }
+                    }))
+                }
+            }
+
             await tx.challenge.update({
                 where: { id: challengeId },
-                data: {
-                    name,
-                    description,
-                    startDate,
-                    endDate,
-                    isPublic,
-                    requiresApproval,
-                    showLeaderboard,
-                    maxParticipants,
-                    metrics: {
-                        create: metricsData.map((m: any) => ({
-                            name: m.name,
-                            unit: m.unit,
-                            aggregationMethod: m.aggregationMethod,
-                            scoringFrequency: m.scoringFrequency,
-                            maxPointsPerPeriod: m.maxPointsPerPeriod,
-                            maxPointsTotal: m.maxPointsTotal,
-                            qualifiers: {
-                                create: (m.qualifiers || []).map((q: any) => ({
-                                    value: q.value,
-                                }))
-                            },
-                            scoringRules: {
-                                create: (m.scoringRules || []).map((r: any) => ({
-                                    comparisonType: r.comparisonType,
-                                    minValue: r.minValue,
-                                    maxValue: r.maxValue,
-                                    points: r.points,
-                                }))
-                            }
-                        }))
-                    }
-                }
+                data: updateData
             })
         })
 

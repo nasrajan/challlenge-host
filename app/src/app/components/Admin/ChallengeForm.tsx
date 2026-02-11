@@ -18,6 +18,7 @@ import {
     ScoringFrequency,
     ComparisonType
 } from "@prisma/client"
+import { toLocalISOString } from "@/lib/dateUtils"
 
 interface ScoringRule {
     comparisonType: ComparisonType;
@@ -79,24 +80,24 @@ export default function ChallengeForm({ initialData, mode }: ChallengeFormProps)
             qualifierValue: "NONE"
         }]
     })) || [
-        {
-            id: Math.random().toString(36).substr(2, 9),
-            name: "",
-            unit: "",
-            aggregationMethod: "SUM",
-            scoringFrequency: "DAILY",
-            maxPointsPerPeriod: null,
-            maxPointsTotal: null,
-            qualifiers: [],
-            scoringRules: [{
-                comparisonType: "GREATER_THAN_EQUAL",
-                minValue: 0,
-                maxValue: null,
-                points: 1,
-                qualifierValue: "NONE"
-            }]
-        }
-    ], [initialData])
+            {
+                id: Math.random().toString(36).substr(2, 9),
+                name: "",
+                unit: "",
+                aggregationMethod: "SUM",
+                scoringFrequency: "DAILY",
+                maxPointsPerPeriod: null,
+                maxPointsTotal: null,
+                qualifiers: [],
+                scoringRules: [{
+                    comparisonType: "GREATER_THAN_EQUAL",
+                    minValue: 0,
+                    maxValue: null,
+                    points: 1,
+                    qualifierValue: "NONE"
+                }]
+            }
+        ], [initialData])
 
     const [metrics, setMetrics] = useState<Metric[]>(defaultMetrics)
 
@@ -168,9 +169,7 @@ export default function ChallengeForm({ initialData, mode }: ChallengeFormProps)
         }
     }
 
-    const formatDateForInput = (date: Date) => {
-        return new Date(date).toISOString().split('T')[0]
-    }
+
 
     return (
         <form onSubmit={handleSubmit} className="space-y-12">
@@ -217,7 +216,7 @@ export default function ChallengeForm({ initialData, mode }: ChallengeFormProps)
                                 name="startDate"
                                 type="date"
                                 required
-                                defaultValue={initialData ? formatDateForInput(initialData.startDate) : ""}
+                                defaultValue={initialData ? toLocalISOString(initialData.startDate) : ""}
                                 className="w-full bg-neutral-800/50 border border-neutral-700/50 rounded-xl px-6 py-4 text-neutral-100 focus:ring-2 focus:ring-yellow-500 outline-none transition-all"
                             />
                         </div>
@@ -227,7 +226,7 @@ export default function ChallengeForm({ initialData, mode }: ChallengeFormProps)
                                 name="endDate"
                                 type="date"
                                 required
-                                defaultValue={initialData ? formatDateForInput(initialData.endDate) : ""}
+                                defaultValue={initialData ? toLocalISOString(initialData.endDate) : ""}
                                 className="w-full bg-neutral-800/50 border border-neutral-700/50 rounded-xl px-6 py-4 text-neutral-100 focus:ring-2 focus:ring-yellow-500 outline-none transition-all"
                             />
                         </div>
@@ -250,7 +249,7 @@ export default function ChallengeForm({ initialData, mode }: ChallengeFormProps)
                                 name="isPublic"
                                 value="true"
                                 defaultChecked={initialData ? initialData.isPublic : true}
-                                className="h-5 w-5 rounded border-neutral-700 bg-neutral-900 text-yellow-500 focus:ring-yellow-500/20"
+                                className="h-5 w-5 rounded border-neutral-700 bg-neutral-900 px-4 text-yellow-500 focus:ring-yellow-500/20"
                             />
                             <div>
                                 <div className="font-bold text-neutral-100">Public Access</div>

@@ -3,18 +3,18 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import Link from "next/link"
 import { notFound } from "next/navigation"
+
 import {
+    Trophy,
     Calendar,
     Users,
     BarChart,
     CheckCircle2,
-    ChevronRight,
     User as UserIcon,
     Crown,
-    FileText,
-    ExternalLink
 } from "lucide-react"
 import JoinChallengeModal from "@/app/components/JoinChallengeModal"
+import DateDisplay from "@/app/components/DateDisplay"
 
 export default async function ChallengeDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const session = await getServerSession(authOptions)
@@ -63,9 +63,13 @@ export default async function ChallengeDetailPage({ params }: { params: Promise<
 
             const totalScore = userMetricsScores.reduce((a, b) => a + b, 0)
 
+            // Get display name from the most recent snapshot, fallback to user name
+            const latestSnapshot = p.user.scoreSnapshots[0]
+            const displayName = latestSnapshot?.displayName || p.displayName || p.user.name || "Anonymous"
+
             return {
                 userId: p.userId,
-                name: p.displayName || p.user.name || "Anonymous",
+                name: displayName,
                 totalScore,
                 metricScores: challenge.metrics.map((m, i) => ({
                     name: m.name,
@@ -82,12 +86,9 @@ export default async function ChallengeDetailPage({ params }: { params: Promise<
                 <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/10 to-transparent pointer-events-none" />
                 <div className="container mx-auto px-6 py-16 relative">
                     <div className="max-w-4xl">
-                        <Link
-                            href="/dashboard"
-                            className="inline-flex items-center gap-2 text-xs font-bold text-neutral-400 hover:text-yellow-500 transition-colors mb-6"
-                        >
-                            <ChevronRight className="h-4 w-4 rotate-180" />
-                            Back to Dashboard
+                        <Link href="/dashboard" className="flex items-center gap-2">
+                            <Trophy className="h-6 w-6 text-yellow-500" />
+                            <span className="text-xl font-bold">Challenge.io</span>
                         </Link>
                         <h1 className="text-5xl font-black mb-6 tracking-tight">{challenge.name}</h1>
                         <p className="text-xl text-neutral-400 mb-8 max-w-2xl leading-relaxed whitespace-pre-wrap">
@@ -101,8 +102,8 @@ export default async function ChallengeDetailPage({ params }: { params: Promise<
                                 </div>
                                 <div>
                                     <div className="text-[10px] font-black text-neutral-500">Duration</div>
-                                    <div className="text-sm font-bold">
-                                        {new Date(challenge.startDate).toLocaleDateString()} — {new Date(challenge.endDate).toLocaleDateString()}
+                                    <div className="text-sm font-bold flex items-center gap-1">
+                                        <DateDisplay date={challenge.startDate} /> — <DateDisplay date={challenge.endDate} />
                                     </div>
                                 </div>
                             </div>

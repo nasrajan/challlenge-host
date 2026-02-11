@@ -2,7 +2,7 @@ import { authOptions } from "@/lib/auth"
 import { getServerSession } from "next-auth"
 import { redirect } from "next/navigation"
 import Link from "next/link"
-import { Trophy, Plus, Settings, Users, LogOut, ChevronRight, Activity, UserCheck } from "lucide-react"
+import { Trophy, Plus, Settings, Users, LogOut, ChevronRight, Activity, UserCheck, Edit2 } from "lucide-react"
 import { prisma } from "@/lib/prisma"
 import ActivityLogger from "@/app/components/ActivityLogger"
 import { approveParticipant, syncChallengeStatuses } from "@/app/actions/challenges"
@@ -194,12 +194,23 @@ export default async function DashboardPage() {
                                                         }))}
                                                     />
                                                 )}
-                                                <Link
-                                                    href={`/challenges/${challenge.id}`}
-                                                    className="text-xs font-bold text-neutral-500 hover:text-white flex items-center gap-1 transition-colors px-2"
-                                                >
-                                                    View Details <ChevronRight className="h-3 w-3" />
-                                                </Link>
+                                                <div className="flex items-center gap-3">
+                                                    {challenge.organizerId === session.user.id && (
+                                                        <Link
+                                                            href={`/admin/challenges/${challenge.id}/edit`}
+                                                            className="text-xs font-bold text-neutral-500 hover:text-yellow-500 flex items-center gap-1 transition-colors px-2"
+                                                        >
+                                                            <Edit2 className="h-3 w-3" />
+                                                            Edit
+                                                        </Link>
+                                                    )}
+                                                    <Link
+                                                        href={`/challenges/${challenge.id}`}
+                                                        className="text-xs font-bold text-neutral-500 hover:text-white flex items-center gap-1 transition-colors px-2"
+                                                    >
+                                                        View Details <ChevronRight className="h-3 w-3" />
+                                                    </Link>
+                                                </div>
                                             </div>
                                         </div>
                                     ))}

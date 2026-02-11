@@ -3,6 +3,7 @@ import { UserRole } from "@prisma/client"
 import { Shield, User as UserIcon, ChevronLeft } from "lucide-react"
 import Link from "next/link"
 import UserRoleSelector from "../UserRoleSelector"
+import DateDisplay from "@/app/components/DateDisplay"
 
 export default async function AdminUsersPage() {
     const users = await getAllUsers()
@@ -57,7 +58,7 @@ export default async function AdminUsersPage() {
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 text-neutral-500">
-                                            {new Date(user.createdAt).toLocaleDateString()}
+                                            <DateDisplay date={user.createdAt} />
                                         </td>
                                         <td className="px-6 py-4">
                                             <UserRoleSelector userId={user.id} currentRole={user.role} />

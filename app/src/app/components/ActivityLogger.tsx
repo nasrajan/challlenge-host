@@ -1,6 +1,7 @@
 'use client'
 
 import { logActivities } from "@/app/actions/challenges"
+import { toLocalISOString } from "@/lib/dateUtils"
 import { Plus, X, Calendar, Activity, Info, CheckCircle2 } from "lucide-react"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
@@ -131,12 +132,12 @@ export default function ActivityLogger({ challengeId, challengeName, metrics, st
                                                 const today = new Date();
                                                 const start = new Date(startDate);
                                                 const end = new Date(endDate);
-                                                if (today < start) return start.toISOString().split('T')[0];
-                                                if (today > end) return end.toISOString().split('T')[0];
-                                                return today.toISOString().split('T')[0];
+                                                if (today < start) return toLocalISOString(start);
+                                                if (today > end) return toLocalISOString(end);
+                                                return toLocalISOString(today);
                                             })()}
-                                            min={new Date(startDate).toISOString().split('T')[0]}
-                                            max={new Date(endDate).toISOString().split('T')[0]}
+                                            min={toLocalISOString(startDate)}
+                                            max={toLocalISOString(endDate)}
                                             required
                                             className="w-full bg-neutral-800/50 border border-neutral-700/50 rounded-2xl pl-12 pr-6 py-4 outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500 transition-all font-bold"
                                         />

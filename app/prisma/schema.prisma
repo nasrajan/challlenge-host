@@ -163,6 +163,7 @@ model ScoreSnapshot {
   userId       String
   challengeId  String
   metricId     String
+  displayName  String?
   periodStart  DateTime
   periodEnd    DateTime
   rawPoints    Float

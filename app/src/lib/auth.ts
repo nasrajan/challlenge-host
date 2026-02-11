@@ -22,6 +22,7 @@ export const authOptions: NextAuthOptions = {
         GoogleProvider({
             clientId: process.env.GOOGLE_CLIENT_ID || "",
             clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
+            allowDangerousEmailAccountLinking: true,
         }),
         CredentialsProvider({
             name: "credentials",
@@ -58,6 +59,28 @@ export const authOptions: NextAuthOptions = {
         }),
     ],
     callbacks: {
+        async signIn({ user, account, profile }) {
+            if (account?.provider === "google") {
+                if (!user.email) return false;
+
+                const existingUser = await prisma.user.findUnique({
+                    where: { email: user.email },
+                });
+
+                if (existingUser) {
+                    // Update user's name/image from Google if not set
+                    await prisma.user.update({
+                        where: { id: existingUser.id },
+                        data: {
+                            name: existingUser.name || user.name,
+                            image: existingUser.image || user.image,
+                            emailVerified: existingUser.emailVerified || new Date(),
+                        },
+                    });
+                }
+            }
+            return true;
+        },
         async session({ session, token }) {
             if (token && session.user) {
                 session.user.id = token.id as string;
@@ -67,9 +90,20 @@ export const authOptions: NextAuthOptions = {
         },
         async jwt({ token, user, trigger, session }) {
             if (user) {
+                // For OAuth users, PrismaAdapter may not include role
+                // Always fetch from DB to get correct role
+                const dbUser = await prisma.user.findUnique({
+                    where: { id: user.id },
+                    select: { role: true },
+                });
                 token.id = user.id;
-                token.role = user.role;
+                token.role = dbUser?.role || "USER";
             }
+
+            if (trigger === "update" && session) {
+                token.role = session.role || token.role;
+            }
+
             return token;
         },
     },

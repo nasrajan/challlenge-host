@@ -43,15 +43,14 @@ export default async function EditChallengePage({ params }: { params: Promise<{ 
                 <header className="mb-12 border-b border-neutral-800 pb-8">
                     <Link href="/admin/challenges" className="flex items-center gap-2 text-neutral-500 hover:text-white transition-colors w-fit mb-6 italic font-mono text-sm">
                         <ChevronLeft className="h-4 w-4" />
-                        Abort Edit / Back to Pool
+                        Back to Challenge Control Center
                     </Link>
-                    <h1 className="text-4xl font-bold flex items-center gap-4 italic uppercase tracking-tighter">
+                    <h1 className="text-4xl font-bold flex items-center gap-4 italic tracking-tighter">
                         <div className="p-3 bg-blue-500/10 rounded-2xl">
                             <Edit2 className="h-10 w-10 text-blue-500" />
                         </div>
-                        Modify Mission Parameters
+                        Update Challenge
                     </h1>
-                    <p className="text-neutral-400 mt-4 text-lg">Adjust the core scoring logic and mission window for <span className="text-blue-400 font-bold">"{challenge.name}"</span>.</p>
                 </header>
 
                 <ChallengeForm

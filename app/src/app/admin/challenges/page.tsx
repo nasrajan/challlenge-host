@@ -23,23 +23,20 @@ export default async function AdminChallengesPage() {
     const ChallengeTable = ({ challenges, title, icon: Icon, colorClass }: any) => (
         <section className="bg-neutral-900 rounded-2xl border border-neutral-800 overflow-hidden shadow-2xl mb-12">
             <div className="px-6 py-4 border-b border-neutral-800 bg-neutral-900/50 flex items-center justify-between">
-                <h2 className={`text-xl font-bold flex items-center gap-2 uppercase italic tracking-tighter ${colorClass}`}>
+                <h2 className={`text-xl font-bold flex items-center gap-2 italic tracking-tighter ${colorClass}`}>
                     <Icon className="h-5 w-5" />
                     {title}
                 </h2>
-                <span className="text-xs font-black uppercase tracking-widest text-neutral-500 bg-neutral-950 px-3 py-1 rounded-full border border-neutral-800">
-                    {challenges.length} missions
-                </span>
             </div>
 
             <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                     <thead>
-                        <tr className="text-neutral-500 text-[10px] font-black uppercase tracking-widest border-b border-neutral-800">
-                            <th className="px-6 py-4">Mission</th>
-                            <th className="px-6 py-4">Metrics</th>
+                        <tr className="text-neutral-500 text-[10px] font-black tracking-widest border-b border-neutral-800">
+                            <th className="px-6 py-4">Challenge Name</th>
+                            <th className="px-6 py-4">Tasks</th>
                             <th className="px-6 py-4">Window</th>
-                            <th className="px-6 py-4 text-right">Crew</th>
+                            <th className="px-6 py-4 text-right">Participants</th>
                             <th className="px-6 py-4 text-center">Actions</th>
                         </tr>
                     </thead>
@@ -50,14 +47,14 @@ export default async function AdminChallengesPage() {
                                     <div className="font-bold text-neutral-200 group-hover:text-white transition-colors truncate">
                                         {challenge.name}
                                     </div>
-                                    <div className="text-[10px] text-neutral-600 truncate font-mono uppercase tracking-tighter">
+                                    <div className="text-[10px] text-neutral-600 truncate font-mono tracking-tighter">
                                         ID: {challenge.id}
                                     </div>
                                 </td>
                                 <td className="px-6 py-4">
                                     <div className="flex flex-wrap gap-1">
                                         {challenge.metrics.map((m: any) => (
-                                            <span key={m.id} className="bg-neutral-950 text-neutral-500 text-[9px] font-black px-1.5 py-0.5 rounded border border-neutral-800 uppercase">
+                                            <span key={m.id} className="bg-neutral-950 text-neutral-500 text-[9px] font-black px-1.5 py-0.5 rounded border border-neutral-800 ">
                                                 {m.name}
                                             </span>
                                         ))}
@@ -112,27 +109,27 @@ export default async function AdminChallengesPage() {
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4">
                             <BarChart className="h-8 w-8 text-yellow-500" />
-                            <h1 className="text-3xl font-bold tracking-tight text-yellow-500 italic uppercase">Challenge Pool</h1>
+                            <h1 className="text-3xl font-bold tracking-tight text-yellow-500 italic">Challenge Pool</h1>
                         </div>
                         <Link
                             href="/challenges/create"
-                            className="bg-yellow-500 text-neutral-950 px-6 py-2 rounded-full font-black text-xs uppercase tracking-widest hover:bg-yellow-400 transition-all shadow-lg shadow-yellow-500/10"
+                            className="bg-yellow-500 text-neutral-950 px-6 py-2 rounded-full font-black text-sm tracking-widest hover:bg-yellow-400 transition-all shadow-lg shadow-yellow-500/10"
                         >
-                            Deploy New Mission
+                            + Create a Challenge
                         </Link>
                     </div>
                 </header>
 
                 <ChallengeTable
                     challenges={activeChallenges}
-                    title="Active Missions"
+                    title="Active Challenges"
                     icon={Zap}
                     colorClass="text-green-500"
                 />
 
                 <ChallengeTable
                     challenges={upcomingChallenges}
-                    title="Upcoming Missions"
+                    title="Upcoming Challenges"
                     icon={Clock}
                     colorClass="text-blue-400"
                 />
@@ -140,7 +137,7 @@ export default async function AdminChallengesPage() {
                 {completedChallenges.length > 0 && (
                     <ChallengeTable
                         challenges={completedChallenges}
-                        title="Archived Missions"
+                        title="Archived Challenges"
                         icon={Calendar}
                         colorClass="text-neutral-500"
                     />

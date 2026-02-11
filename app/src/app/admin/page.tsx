@@ -9,7 +9,7 @@ export default async function AdminPage() {
                     <div className="flex items-center gap-4">
                         <Shield className="h-10 w-10 text-red-500" />
                         <div>
-                            <h1 className="text-4xl font-black tracking-tighter uppercase italic">Control Center</h1>
+                            <h1 className="text-4xl font-black tracking-tighter italic">Control Center</h1>
                             <p className="text-neutral-500 text-sm font-mono tracking-widest">System Administrator Dashboard</p>
                         </div>
                     </div>
@@ -36,13 +36,13 @@ export default async function AdminPage() {
                             <div className="bg-yellow-500/10 p-3 rounded-2xl w-fit mb-6 border border-yellow-500/20">
                                 <BarChart className="h-6 w-6 text-yellow-500" />
                             </div>
-                            <h2 className="text-2xl font-black mb-2 uppercase italic tracking-tighter group-hover:text-yellow-500 transition-colors">
+                            <h2 className="text-2xl font-black mb-2 italic tracking-tighter group-hover:text-yellow-500 transition-colors">
                                 Manage Challenges
                             </h2>
                             <p className="text-neutral-500 text-sm leading-relaxed mb-8">
-                                Oversee challenge parameters, verify logs, and adjust upcoming challenge rules and eligibility.
+                                Oversee challenge parameters, verify logs, and update challenge rules and scoring criteria.
                             </p>
-                            <div className="mt-auto flex items-center gap-2 text-xs font-black uppercase tracking-widest text-yellow-500">
+                            <div className="mt-auto flex items-center gap-2 text-xs font-black text-yellow-500">
                                 View Challenges
                                 <span className="group-hover:translate-x-1 transition-transform">→</span>
                             </div>
@@ -62,13 +62,13 @@ export default async function AdminPage() {
                             <div className="bg-blue-500/10 p-3 rounded-2xl w-fit mb-6 border border-blue-500/20">
                                 <UserIcon className="h-6 w-6 text-blue-500" />
                             </div>
-                            <h2 className="text-2xl font-black mb-2 uppercase italic tracking-tighter group-hover:text-blue-500 transition-colors">
+                            <h2 className="text-2xl font-black mb-2 italic tracking-tighter group-hover:text-blue-500 transition-colors">
                                 Manage Users
                             </h2>
                             <p className="text-neutral-500 text-sm leading-relaxed mb-8">
                                 Review users, adjust roles, and monitor participation across the across the platform.
                             </p>
-                            <div className="mt-auto flex items-center gap-2 text-xs font-black uppercase tracking-widest text-blue-500">
+                            <div className="mt-auto flex items-center gap-2 text-xs font-black text-blue-500">
                                 View Users
                                 <span className="group-hover:translate-x-1 transition-transform">→</span>
                             </div>

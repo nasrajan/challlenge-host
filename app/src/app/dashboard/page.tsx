@@ -13,25 +13,33 @@ export default async function DashboardPage() {
         redirect("/login")
     }
 
-    const participations = await prisma.participant.findMany({
+    const challenges = await prisma.challenge.findMany({
         where: {
-            userId: session.user.id,
-            status: "APPROVED"
-        },
-        include: {
-            challenge: {
-                include: {
-                    metrics: {
-                        include: {
-                            qualifiers: true,
-                            scoreSnapshots: {
-                                where: { userId: session.user.id },
-                                orderBy: { createdAt: 'desc' },
-                                take: 1
-                            }
+            OR: [
+                { organizerId: session.user.id },
+                {
+                    participants: {
+                        some: {
+                            userId: session.user.id,
+                            status: "APPROVED"
                         }
                     }
                 }
+            ]
+        },
+        include: {
+            metrics: {
+                include: {
+                    qualifiers: true,
+                    scoreSnapshots: {
+                        where: { userId: session.user.id },
+                        orderBy: { createdAt: 'desc' },
+                        take: 1
+                    }
+                }
+            },
+            participants: {
+                where: { userId: session.user.id }
             }
         }
     })
@@ -47,7 +55,7 @@ export default async function DashboardPage() {
                 <div className="flex items-center gap-6">
                     <div className="hidden sm:flex flex-col items-end">
                         <span className="text-sm font-medium">{session.user.name}</span>
-                        <span className="text-xs text-neutral-500 uppercase tracking-wider">{session.user.role}</span>
+                        <span className="text-xs text-neutral-500 font-bold capitalize">{session.user.role.toLowerCase()}</span>
                     </div>
                     <Link href="/api/auth/signout" className="text-neutral-400 hover:text-white transition-colors">
                         <LogOut className="h-5 w-5" />
@@ -83,14 +91,14 @@ export default async function DashboardPage() {
                                     Active Challenges
                                 </h3>
                                 <Link href="/challenges" className="text-sm text-neutral-500 hover:text-yellow-500 transition-colors font-medium">
-                                    Discover More
+                                    More
                                 </Link>
                             </div>
 
-                            {participations.length === 0 ? (
+                            {challenges.length === 0 ? (
                                 <div className="p-12 rounded-3xl border border-dashed border-neutral-800 bg-neutral-900/40 flex flex-col items-center justify-center text-center">
                                     <Users className="h-12 w-12 text-neutral-700 mb-4" />
-                                    <h4 className="text-lg font-bold mb-2">No active missions</h4>
+                                    <h4 className="text-lg font-bold mb-2">No active Challenge</h4>
                                     <p className="text-neutral-500 max-w-xs mb-6 text-sm">Join a public challenge or create one to start tracking your progress.</p>
                                     <Link href="/challenges" className="bg-neutral-800 text-white px-6 py-2 rounded-xl font-semibold hover:bg-neutral-700 transition-all">
                                         Browse Gallery
@@ -98,22 +106,22 @@ export default async function DashboardPage() {
                                 </div>
                             ) : (
                                 <div className="grid gap-6">
-                                    {participations.map((p) => (
-                                        <div key={p.id} className="bg-neutral-900 border border-neutral-800 rounded-3xl p-6 hover:border-neutral-700 transition-all flex flex-col md:flex-row justify-between gap-6 group">
+                                    {challenges.map((challenge) => (
+                                        <div key={challenge.id} className="bg-neutral-900 border border-neutral-800 rounded-3xl p-6 hover:border-neutral-700 transition-all flex flex-col md:flex-row justify-between gap-6 group">
                                             <div className="space-y-4 flex-1">
                                                 <div className="flex items-center justify-between">
-                                                    <h4 className="text-xl font-bold group-hover:text-yellow-500 transition-colors">{p.challenge.name}</h4>
-                                                    <div className="text-xs font-black text-neutral-500 uppercase tracking-widest bg-neutral-950 px-3 py-1 rounded-full border border-neutral-800">
-                                                        {p.challenge.status}
+                                                    <h4 className="text-xl font-bold group-hover:text-yellow-500 transition-colors">{challenge.name}</h4>
+                                                    <div className="text-xs font-bold text-neutral-500 capitalize bg-neutral-950 px-3 py-1 rounded-full border border-neutral-800">
+                                                        {challenge.status.toLowerCase()}
                                                     </div>
                                                 </div>
 
                                                 <div className="flex flex-wrap gap-4">
-                                                    {p.challenge.metrics.map(m => {
+                                                    {challenge.metrics.map(m => {
                                                         const lastSnapshot = m.scoreSnapshots[0];
                                                         return (
                                                             <div key={m.id} className="bg-neutral-950/50 rounded-2xl p-4 border border-neutral-800/50 min-w-[140px]">
-                                                                <div className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">{m.name}</div>
+                                                                <div className="text-[10px] font-bold text-neutral-500 mb-1">{m.name}</div>
                                                                 <div className="text-lg font-black text-white">
                                                                     {lastSnapshot?.totalPoints || 0}
                                                                     <span className="text-xs text-neutral-500 font-medium ml-1">pts</span>
@@ -125,18 +133,22 @@ export default async function DashboardPage() {
                                             </div>
 
                                             <div className="flex flex-col gap-3 justify-center md:items-end">
-                                                <ActivityLogger
-                                                    challengeId={p.challengeId}
-                                                    challengeName={p.challenge.name}
-                                                    metrics={p.challenge.metrics.map(m => ({
-                                                        id: m.id,
-                                                        name: m.name,
-                                                        unit: m.unit,
-                                                        qualifiers: m.qualifiers
-                                                    }))}
-                                                />
+                                                {challenge.participants.length > 0 && (
+                                                    <ActivityLogger
+                                                        challengeId={challenge.id}
+                                                        challengeName={challenge.name}
+                                                        startDate={challenge.startDate}
+                                                        endDate={challenge.endDate}
+                                                        metrics={challenge.metrics.map(m => ({
+                                                            id: m.id,
+                                                            name: m.name,
+                                                            unit: m.unit,
+                                                            qualifiers: m.qualifiers
+                                                        }))}
+                                                    />
+                                                )}
                                                 <Link
-                                                    href={`/challenges/${p.challengeId}`}
+                                                    href={`/challenges/${challenge.id}`}
                                                     className="text-xs font-bold text-neutral-500 hover:text-white flex items-center gap-1 transition-colors px-2"
                                                 >
                                                     View Details <ChevronRight className="h-3 w-3" />

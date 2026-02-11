@@ -129,6 +129,7 @@ model Participant {
   id          String            @id @default(cuid())
   userId      String
   challengeId String
+  displayName String?
   joinedAt    DateTime          @default(now())
   status      ParticipantStatus @default(PENDING)
   challenge   Challenge         @relation(fields: [challengeId], references: [id])

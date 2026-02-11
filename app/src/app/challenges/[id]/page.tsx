@@ -4,7 +4,6 @@ import { authOptions } from "@/lib/auth"
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import {
-    Trophy,
     Calendar,
     Users,
     BarChart,
@@ -15,7 +14,7 @@ import {
     FileText,
     ExternalLink
 } from "lucide-react"
-import { joinChallenge } from "@/app/actions/challenges"
+import JoinChallengeModal from "@/app/components/JoinChallengeModal"
 
 export default async function ChallengeDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const session = await getServerSession(authOptions)
@@ -66,7 +65,7 @@ export default async function ChallengeDetailPage({ params }: { params: Promise<
 
             return {
                 userId: p.userId,
-                name: p.user.name || "Anonymous",
+                name: p.displayName || p.user.name || "Anonymous",
                 totalScore,
                 metricScores: challenge.metrics.map((m, i) => ({
                     name: m.name,
@@ -84,16 +83,12 @@ export default async function ChallengeDetailPage({ params }: { params: Promise<
                 <div className="container mx-auto px-6 py-16 relative">
                     <div className="max-w-4xl">
                         <Link
-                            href="/challenges"
+                            href="/dashboard"
                             className="inline-flex items-center gap-2 text-xs font-bold text-neutral-400 hover:text-yellow-500 transition-colors mb-6"
                         >
                             <ChevronRight className="h-4 w-4 rotate-180" />
-                            Back to Challenges
+                            Back to Dashboard
                         </Link>
-                        <div className="flex items-center gap-3 text-yellow-500 font-bold tracking-widest text-xs mb-4">
-                            <Trophy className="h-4 w-4" />
-                            Live Challenges
-                        </div>
                         <h1 className="text-5xl font-black mb-6 tracking-tight">{challenge.name}</h1>
                         <p className="text-xl text-neutral-400 mb-8 max-w-2xl leading-relaxed whitespace-pre-wrap">
                             {challenge.description}
@@ -122,11 +117,10 @@ export default async function ChallengeDetailPage({ params }: { params: Promise<
                             </div>
 
                             {!isParticipant && session && (
-                                <form action={joinChallenge.bind(null, challenge.id)}>
-                                    <button className="bg-yellow-500 text-neutral-950 px-8 py-3 rounded-2xl font-black hover:bg-yellow-400 transition-all shadow-xl shadow-yellow-500/20 active:scale-95">
-                                        Join the Challenge
-                                    </button>
-                                </form>
+                                <JoinChallengeModal
+                                    challengeId={challenge.id}
+                                    challengeName={challenge.name}
+                                />
                             )}
                         </div>
                     </div>

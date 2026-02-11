@@ -4,15 +4,63 @@ import { prisma } from "@/lib/prisma"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import {
-    ChallengeStatus,
-    AggregationMethod,
-    ScoringFrequency,
-    ComparisonType,
     Prisma
 } from "@prisma/client"
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 import { calculateUserScoreForMetric } from "@/lib/scoring"
+
+export async function syncChallengeStatuses(now: Date = new Date()) {
+    await prisma.$transaction([
+        prisma.challenge.updateMany({
+            where: {
+                startDate: { lte: now },
+                endDate: { gte: now },
+                status: { not: "ACTIVE" }
+            },
+            data: { status: "ACTIVE" }
+        }),
+        prisma.challenge.updateMany({
+            where: {
+                startDate: { gt: now },
+                status: { not: "UPCOMING" }
+            },
+            data: { status: "UPCOMING" }
+        }),
+        prisma.challenge.updateMany({
+            where: {
+                endDate: { lt: now },
+                status: { not: "COMPLETED" }
+            },
+            data: { status: "COMPLETED" }
+        })
+    ])
+}
+
+export async function approveParticipant(participantId: string) {
+    const session = await getServerSession(authOptions)
+    if (!session) throw new Error("Unauthorized")
+
+    const participant = await prisma.participant.findUnique({
+        where: { id: participantId },
+        include: { challenge: true }
+    })
+
+    if (!participant) throw new Error("Participant not found")
+
+    const isAdmin = session.user.role === "ADMIN"
+    const isOrganizer = session.user.role === "ORGANIZER" && participant.challenge.organizerId === session.user.id
+    if (!isAdmin && !isOrganizer) throw new Error("Unauthorized")
+
+    await prisma.participant.update({
+        where: { id: participantId },
+        data: { status: "APPROVED" }
+    })
+
+    revalidatePath("/dashboard")
+    revalidatePath("/admin/challenges")
+    revalidatePath(`/challenges/${participant.challengeId}`)
+}
 
 export async function createChallenge(formData: FormData) {
     const session = await getServerSession(authOptions)
@@ -149,9 +197,17 @@ export async function logActivities(data: {
     });
 }*/
 
-export async function joinChallenge(challengeId: string) {
+export async function joinChallenge(challengeId: string, displayName: string) {
     const session = await getServerSession(authOptions)
     if (!session) throw new Error("Unauthorized")
+
+    // Validate display name
+    if (!displayName || displayName.trim().length < 2) {
+        throw new Error("Display name must be at least 2 characters")
+    }
+    if (displayName.trim().length > 50) {
+        throw new Error("Display name must be 50 characters or less")
+    }
 
     const challenge = await prisma.challenge.findUnique({
         where: { id: challengeId }
@@ -165,6 +221,7 @@ export async function joinChallenge(challengeId: string) {
         data: {
             userId: session.user.id,
             challengeId,
+            displayName: displayName.trim(),
             status: status as any
         }
     })

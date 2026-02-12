@@ -186,6 +186,10 @@ export default async function DashboardPage() {
                                                         challengeName={challenge.name}
                                                         startDate={challenge.startDate}
                                                         endDate={challenge.endDate}
+                                                        participants={challenge.participants.map(p => ({
+                                                            id: p.id,
+                                                            name: p.name
+                                                        }))}
                                                         metrics={challenge.metrics.map(m => ({
                                                             id: m.id,
                                                             name: m.name,

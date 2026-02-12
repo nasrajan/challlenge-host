@@ -12,8 +12,10 @@ import {
     CheckCircle2,
     User as UserIcon,
     Crown,
+    LayoutDashboard,
 } from "lucide-react"
 import JoinChallengeModal from "@/app/components/JoinChallengeModal"
+import ActivityLogger from "@/app/components/ActivityLogger"
 import DateDisplay from "@/app/components/DateDisplay"
 
 export default async function ChallengeDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -31,13 +33,10 @@ export default async function ChallengeDetailPage({ params }: { params: Promise<
             },
             participants: {
                 include: {
-                    user: {
-                        include: {
-                            scoreSnapshots: {
-                                where: { challengeId },
-                                orderBy: { createdAt: 'desc' }
-                            }
-                        }
+                    user: true,
+                    scoreSnapshots: {
+                        where: { challengeId },
+                        orderBy: { createdAt: 'desc' }
                     }
                 }
             },
@@ -52,28 +51,28 @@ export default async function ChallengeDetailPage({ params }: { params: Promise<
     const isParticipant = !!challenge.participants.find(p => p.userId === session?.user?.id)
 
     // Calculate Leaderboard
-    // We need to aggregate total points per user across all metrics for this challenge
+    // We need to aggregate total points per participant across all metrics for this challenge
     const leaderboard = challenge.participants
         .map(p => {
-            // Get the latest snapshot for each metric for this user
-            const userMetricsScores = challenge.metrics.map(m => {
-                const latestSnapshot = p.user.scoreSnapshots.find(s => s.metricId === m.id)
+            // Get the latest snapshot for each metric for this participant
+            const participantMetricsScores = challenge.metrics.map(m => {
+                const latestSnapshot = p.scoreSnapshots.find(s => s.metricId === m.id)
                 return latestSnapshot?.totalPoints || 0
             })
 
-            const totalScore = userMetricsScores.reduce((a, b) => a + b, 0)
+            const totalScore = participantMetricsScores.reduce((a, b) => a + b, 0)
 
-            // Get display name from the most recent snapshot, fallback to user name
-            const latestSnapshot = p.user.scoreSnapshots[0]
-            const displayName = latestSnapshot?.displayName || p.displayName || p.user.name || "Anonymous"
+            // Get display name from the participant, fallback to most recent snapshot, then user name
+            const latestSnapshot = p.scoreSnapshots[0]
+            const displayName = p.displayName || latestSnapshot?.displayName || p.user.name || "Anonymous"
 
             return {
-                userId: p.userId,
+                participantId: p.id,
                 name: displayName,
                 totalScore,
                 metricScores: challenge.metrics.map((m, i) => ({
                     name: m.name,
-                    score: userMetricsScores[i]
+                    score: participantMetricsScores[i]
                 }))
             }
         })
@@ -86,10 +85,16 @@ export default async function ChallengeDetailPage({ params }: { params: Promise<
                 <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/10 to-transparent pointer-events-none" />
                 <div className="container mx-auto px-6 py-16 relative">
                     <div className="max-w-4xl">
-                        <Link href="/dashboard" className="flex items-center gap-2">
-                            <Trophy className="h-6 w-6 text-yellow-500" />
-                            <span className="text-xl font-bold">Challenge.io</span>
-                        </Link>
+                        <div className="flex items-center justify-between mb-8">
+                            <Link href="/dashboard" className="flex items-center gap-2">
+                                <Trophy className="h-6 w-6 text-yellow-500" />
+                                <span className="text-xl font-bold">Challenge.io</span>
+                            </Link>
+                            <Link href="/dashboard" className="flex items-center gap-2 bg-neutral-800/50 hover:bg-neutral-800 border border-neutral-700/50 px-4 py-2 rounded-xl text-sm font-bold transition-all text-neutral-300 hover:text-white">
+                                <LayoutDashboard className="h-4 w-4" />
+                                Dashboard
+                            </Link>
+                        </div>
                         <h1 className="text-5xl font-black mb-6 tracking-tight">{challenge.name}</h1>
                         <p className="text-xl text-neutral-400 mb-8 max-w-2xl leading-relaxed whitespace-pre-wrap">
                             {challenge.description}
@@ -117,7 +122,28 @@ export default async function ChallengeDetailPage({ params }: { params: Promise<
                                 </div>
                             </div>
 
-                            {!isParticipant && session && (
+                            {isParticipant && (
+                                <ActivityLogger
+                                    challengeId={challenge.id}
+                                    challengeName={challenge.name}
+                                    startDate={challenge.startDate}
+                                    endDate={challenge.endDate}
+                                    participants={challenge.participants
+                                        .filter(p => p.userId === session?.user?.id)
+                                        .map(p => ({
+                                            id: p.id,
+                                            name: p.name
+                                        }))}
+                                    metrics={challenge.metrics.map(m => ({
+                                        id: m.id,
+                                        name: m.name,
+                                        unit: m.unit,
+                                        qualifiers: m.qualifiers || []
+                                    }))}
+                                />
+                            )}
+
+                            {session && !isParticipant && (
                                 <JoinChallengeModal
                                     challengeId={challenge.id}
                                     challengeName={challenge.name}
@@ -174,7 +200,7 @@ export default async function ChallengeDetailPage({ params }: { params: Promise<
 
                         <div className="divide-y divide-neutral-800">
                             {leaderboard.map((user, index) => (
-                                <div key={user.userId} className={`px-8 py-6 flex items-center gap-6 transition-colors group hover:bg-neutral-900/40 ${index < 3 ? 'bg-yellow-500/5' : ''}`}>
+                                <div key={user.participantId} className={`px-8 py-6 flex items-center gap-6 transition-colors group hover:bg-neutral-900/40 ${index < 3 ? 'bg-yellow-500/5' : ''}`}>
                                     <div className="w-10 text-center font-black text-neutral-700 text-xl italic group-hover:text-yellow-500 transition-colors">
                                         #{index + 1}
                                     </div>

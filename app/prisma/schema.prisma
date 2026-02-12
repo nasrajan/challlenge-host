@@ -130,7 +130,7 @@ model Participant {
   id          String            @id @default(cuid())
   userId      String
   challengeId String
-  name        String            // Added name field
+  name        String            // Unique name for user within challenge
   displayName String?
   joinedAt    DateTime          @default(now())
   status      ParticipantStatus @default(PENDING)

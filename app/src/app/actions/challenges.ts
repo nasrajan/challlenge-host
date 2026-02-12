@@ -9,6 +9,7 @@ import {
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 import { recalculateParticipantChallengeScore, calculateParticipantScoreForMetric } from "@/lib/scoring"
+import { parseAsPST } from "@/lib/dateUtils"
 
 export async function syncChallengeStatuses(now: Date = new Date()) {
     await prisma.$transaction([
@@ -71,8 +72,8 @@ export async function createChallenge(formData: FormData) {
 
     const name = formData.get("name") as string
     const description = formData.get("description") as string
-    const startDate = new Date(formData.get("startDate") as string)
-    const endDate = new Date(formData.get("endDate") as string)
+    const startDate = parseAsPST(formData.get("startDate") as string)
+    const endDate = parseAsPST(formData.get("endDate") as string)
     const isPublic = formData.get("isPublic") === "true"
     const requiresApproval = formData.get("requiresApproval") === "true"
     const showLeaderboard = formData.get("showLeaderboard") === "true"
@@ -143,7 +144,7 @@ export async function logActivities(data: {
     if (!session) throw new Error("Unauthorized")
 
     const { challengeId, participantId, logDate, notes, activities } = data;
-    const date = new Date(logDate);
+    const date = parseAsPST(logDate);
 
     try {
         await prisma.$transaction(async (tx) => {

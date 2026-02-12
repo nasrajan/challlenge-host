@@ -2,7 +2,8 @@ import { prisma } from "@/lib/prisma"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import Link from "next/link"
-import { Trophy, Calendar, Users, ChevronRight, Filter } from "lucide-react"
+import { redirect } from "next/navigation"
+import { Trophy, Calendar, Users, ChevronRight, Filter, LayoutDashboard } from "lucide-react"
 import { syncChallengeStatuses } from "@/app/actions/challenges"
 import JoinChallengeModal from "@/app/components/JoinChallengeModal"
 import DateDisplay from "@/app/components/DateDisplay"
@@ -29,6 +30,10 @@ export default async function ChallengesExplorePage() {
         orderBy: { startDate: 'desc' }
     })
 
+    if (!session) {
+        redirect("/api/auth/signin?callbackUrl=/challenges");
+    }
+
     return (
         <div className="min-h-screen bg-neutral-950 text-neutral-100 p-8">
             <div className="max-w-6xl mx-auto">
@@ -42,6 +47,10 @@ export default async function ChallengesExplorePage() {
                         <p className="text-neutral-400">Join the community and push your limits.</p>
                     </div>
                     <div className="flex items-center gap-3">
+                        <Link href="/dashboard" className="flex items-center gap-2 bg-neutral-900 border border-neutral-800 px-4 py-2 rounded-xl text-sm font-semibold hover:bg-neutral-800 transition-all text-neutral-400 hover:text-white">
+                            <LayoutDashboard className="h-4 w-4" />
+                            Dashboard
+                        </Link>
                         <button className="flex items-center gap-2 bg-neutral-900 border border-neutral-800 px-4 py-2 rounded-xl text-sm font-semibold hover:bg-neutral-800 transition-all">
                             <Filter className="h-4 w-4" />
                             Filter
@@ -82,12 +91,7 @@ export default async function ChallengesExplorePage() {
                                 </div>
 
                                 <div className="space-y-3">
-                                    {session && challenge.participants?.length === 0 && (
-                                        <JoinChallengeModal
-                                            challengeId={challenge.id}
-                                            challengeName={challenge.name}
-                                        />
-                                    )}
+                                    {/* Removed Join button from list view as requested */}
                                     {session && challenge.participants?.length > 0 && (
                                         <div className="w-full bg-neutral-800 text-neutral-400 py-3 rounded-2xl font-bold text-center border border-neutral-700">
                                             Joined

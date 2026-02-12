@@ -71,6 +71,7 @@ model Challenge {
   status           ChallengeStatus   @default(UPCOMING)
   organizerId      String
   isPublic         Boolean           @default(true)
+  timezone         String            @default("America/Los_Angeles")
   maxParticipants  Int?
   requiresApproval Boolean           @default(false)
   showLeaderboard  Boolean           @default(true)

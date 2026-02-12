@@ -59,11 +59,7 @@ export async function calculateParticipantScoreForMetric(
     const logs = await prisma.activityLog.findMany({
         where: {
             participantId,
-            metricId,
-            date: {
-                gte: metric.challenge.startDate,
-                lte: metric.challenge.endDate,
-            }
+            metricId
         },
         orderBy: { date: 'asc' }
     });

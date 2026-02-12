@@ -45,8 +45,10 @@ export default function ActivityLogger({
 
     async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault()
+        const form = e.currentTarget // Capture reference immediately
         setLoading(true)
         setError(null)
+        setSuccess(false) // Reset success state for new attempt
 
         if (!selectedParticipantId) {
             setError("Please select a participant.")
@@ -54,7 +56,7 @@ export default function ActivityLogger({
             return
         }
 
-        const formData = new FormData(e.currentTarget)
+        const formData = new FormData(form)
         const entries = [];
         const logDate = formData.get("logDate") as string;
         const notes = formData.get("notes") as string;
@@ -89,7 +91,7 @@ export default function ActivityLogger({
 
         const result = await logActivities({
             challengeId,
-            participantId: selectedParticipantId, // Pass selected participant
+            participantId: selectedParticipantId,
             logDate,
             notes,
             activities: entries
@@ -100,13 +102,23 @@ export default function ActivityLogger({
             setLoading(false)
         } else {
             setSuccess(true)
-            setTimeout(() => {
-                setIsOpen(false)
-                setSuccess(false)
-                router.refresh()
-            }, 1500)
+            // Reset form fields but keep selected participant and date
+            form.reset();
+            // We need to re-set the date because form.reset() clears it
+            const dateInput = form.querySelector('input[name="logDate"]') as HTMLInputElement;
+            if (dateInput) {
+                dateInput.value = logDate;
+            }
+
             setLoading(false)
+            // Success stays true to show the message, but it's not a blocking state anymore
         }
+    }
+
+    const handleFinish = () => {
+        setIsOpen(false)
+        router.refresh()
+        router.push("/dashboard")
     }
 
     if (!isOpen) {
@@ -138,129 +150,137 @@ export default function ActivityLogger({
                 </div>
 
                 <form onSubmit={handleSubmit} className="p-8 space-y-8 max-h-[70vh] overflow-y-auto custom-scrollbar">
-                    {success ? (
-                        <div className="py-12 flex flex-col items-center justify-center text-center space-y-4 animate-in fade-in slide-in-from-bottom-4">
-                            <div className="h-20 w-20 bg-green-500/20 rounded-full flex items-center justify-center">
-                                <CheckCircle2 className="h-10 w-10 text-green-500" />
-                            </div>
-                            <h4 className="text-2xl font-black">Activities Updated!</h4>
+                    {error && (
+                        <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-2xl text-sm flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
+                            <Info className="h-5 w-5 shrink-0" />
+                            {error}
                         </div>
-                    ) : (
-                        <>
-                            {error && (
-                                <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-2xl text-sm flex items-center gap-3">
-                                    <Info className="h-5 w-5 shrink-0" />
-                                    {error}
-                                </div>
-                            )}
+                    )}
 
-                            <div className="grid gap-6">
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="grid gap-3">
-                                        <label className="text-[10px] font-black text-neutral-500 ml-1 uppercase tracking-widest">Participant</label>
-                                        <select
-                                            value={selectedParticipantId}
-                                            onChange={(e) => setSelectedParticipantId(e.target.value)}
-                                            className="w-full bg-neutral-800/50 border border-neutral-700/50 rounded-2xl px-4 py-4 outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500 transition-all font-bold appearance-none text-sm"
-                                            required
-                                        >
-                                            {participants.map(p => (
-                                                <option key={p.id} value={p.id}>{p.name}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <div className="grid gap-3">
-                                        <label className="text-[10px] font-black text-neutral-500 ml-1 uppercase tracking-widest">Date</label>
-                                        <div className="relative group">
-                                            <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-neutral-500 group-focus-within:text-yellow-500 transition-colors" />
-                                            <input
-                                                name="logDate"
-                                                type="date"
-                                                defaultValue={(() => {
-                                                    const today = new Date();
-                                                    const start = new Date(startDate);
-                                                    const end = new Date(endDate);
-                                                    if (today < start) return toLocalISOString(start);
-                                                    if (today > end) return toLocalISOString(end);
-                                                    return toLocalISOString(today);
-                                                })()}
-                                                min={toLocalISOString(startDate)}
-                                                max={toLocalISOString(endDate)}
-                                                required
-                                                className="w-full bg-neutral-800/50 border border-neutral-700/50 rounded-2xl pl-12 pr-6 py-4 outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500 transition-all font-bold text-sm"
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
+                    {success && (
+                        <div className="bg-green-500/10 border border-green-500/20 text-green-400 p-4 rounded-2xl text-sm flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
+                            <CheckCircle2 className="h-5 w-5 shrink-0" />
+                            Log saved successfully! You can log for another participant.
+                        </div>
+                    )}
 
-                                <div className="space-y-4">
-                                    <label className="text-[10px] font-black text-neutral-500 ml-1 uppercase tracking-widest">Scores for the day</label>
-                                    <div className="grid gap-4">
-                                        {metrics.map(metric => (
-                                            <div key={metric.id} className="bg-neutral-800/30 border border-neutral-800/50 rounded-2xl p-4 flex items-center gap-4 group hover:border-neutral-700 transition-all">
-                                                <div className="flex-1">
-                                                    <h4 className="font-bold text-sm text-neutral-200">{metric.name}</h4>
-                                                    <span className="text-[10px] font-black text-neutral-500">{metric.unit}</span>
-                                                </div>
-                                                <div className="w-32 flex justify-end">
-                                                    {metric.inputType === 'CHECKBOX' ? (
-                                                        <input
-                                                            name={`value_${metric.id}`}
-                                                            type="checkbox"
-                                                            value="1"
-                                                            className="h-8 w-8 rounded-lg border-neutral-700 bg-neutral-900 text-yellow-500 focus:ring-yellow-500/50 accent-yellow-500"
-                                                        />
-                                                    ) : metric.inputType === 'TEXT' ? (
-                                                        <input
-                                                            name={`value_${metric.id}`}
-                                                            type="text"
-                                                            placeholder="Note..."
-                                                            className="w-full bg-neutral-900 border border-neutral-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500 transition-all text-sm font-medium text-neutral-200"
-                                                        />
-                                                    ) : (
-                                                        <input
-                                                            name={`value_${metric.id}`}
-                                                            type="number"
-                                                            step="any"
-                                                            min="0"
-                                                            placeholder="0"
-                                                            className="w-full bg-neutral-900 border border-neutral-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500 transition-all text-right font-black"
-                                                        />
-                                                    )}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                <div className="grid gap-3">
-                                    <label className="text-[10px] font-black text-neutral-500 ml-1 uppercase tracking-widest">Session Notes</label>
-                                    <textarea
-                                        name="notes"
-                                        className="w-full bg-neutral-800/50 border border-neutral-700/50 rounded-2xl px-6 py-4 outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500 transition-all h-24 text-sm resize-none font-medium"
-                                        placeholder="Add some context to your mission today..."
+                    <div className="grid gap-6">
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="grid gap-3">
+                                <label className="text-[10px] font-black text-neutral-500 ml-1 uppercase tracking-widest">Participant</label>
+                                <select
+                                    value={selectedParticipantId}
+                                    onChange={(e) => {
+                                        setSelectedParticipantId(e.target.value)
+                                        setSuccess(false) // Clear success message when switching participants
+                                    }}
+                                    className="w-full bg-neutral-800/50 border border-neutral-700/50 rounded-2xl px-4 py-4 outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500 transition-all font-bold appearance-none text-sm"
+                                    required
+                                >
+                                    {participants.map(p => (
+                                        <option key={p.id} value={p.id}>{p.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="grid gap-3">
+                                <label className="text-[10px] font-black text-neutral-500 ml-1 uppercase tracking-widest">Date</label>
+                                <div className="relative group">
+                                    <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-neutral-500 group-focus-within:text-yellow-500 transition-colors" />
+                                    <input
+                                        name="logDate"
+                                        type="date"
+                                        defaultValue={(() => {
+                                            const today = new Date();
+                                            const start = new Date(startDate);
+                                            const end = new Date(endDate);
+                                            if (today < start) return toLocalISOString(start);
+                                            if (today > end) return toLocalISOString(end);
+                                            return toLocalISOString(today);
+                                        })()}
+                                        min={toLocalISOString(startDate)}
+                                        max={toLocalISOString(endDate)}
+                                        required
+                                        className="w-full bg-neutral-800/50 border border-neutral-700/50 rounded-2xl pl-12 pr-6 py-4 outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500 transition-all font-bold text-sm"
                                     />
                                 </div>
                             </div>
+                        </div>
 
-                            <div className="flex gap-4 pt-4">
-                                <button
-                                    type="button"
-                                    onClick={() => setIsOpen(false)}
-                                    className="flex-1 px-8 py-4 rounded-2xl border border-neutral-800 font-bold hover:bg-neutral-800 transition-all active:scale-95"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    disabled={loading}
-                                    type="submit"
-                                    className="flex-[2] bg-yellow-500 text-neutral-950 font-black py-4 rounded-2xl hover:bg-yellow-400 transition-all shadow-xl shadow-yellow-500/20 disabled:opacity-50 active:scale-95"
-                                >
-                                    {loading ? "Saving..." : "Save Log"}
-                                </button>
+                        <div className="space-y-4">
+                            <label className="text-[10px] font-black text-neutral-500 ml-1 uppercase tracking-widest">Scores for the day</label>
+                            <div className="grid gap-4">
+                                {metrics.map(metric => (
+                                    <div key={metric.id} className="bg-neutral-800/30 border border-neutral-800/50 rounded-2xl p-4 flex items-center gap-4 group hover:border-neutral-700 transition-all">
+                                        <div className="flex-1">
+                                            <h4 className="font-bold text-sm text-neutral-200">{metric.name}</h4>
+                                            <span className="text-[10px] font-black text-neutral-500">{metric.unit}</span>
+                                        </div>
+                                        <div className="w-32 flex justify-end">
+                                            {metric.inputType === 'CHECKBOX' ? (
+                                                <input
+                                                    name={`value_${metric.id}`}
+                                                    type="checkbox"
+                                                    value="1"
+                                                    className="h-8 w-8 rounded-lg border-neutral-700 bg-neutral-900 text-yellow-500 focus:ring-yellow-500/50 accent-yellow-500"
+                                                />
+                                            ) : metric.inputType === 'TEXT' ? (
+                                                <input
+                                                    name={`value_${metric.id}`}
+                                                    type="text"
+                                                    placeholder="Note..."
+                                                    className="w-full bg-neutral-900 border border-neutral-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500 transition-all text-sm font-medium text-neutral-200"
+                                                />
+                                            ) : (
+                                                <input
+                                                    name={`value_${metric.id}`}
+                                                    type="number"
+                                                    step="any"
+                                                    min="0"
+                                                    placeholder="0"
+                                                    className="w-full bg-neutral-900 border border-neutral-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500 transition-all text-right font-black"
+                                                />
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
-                        </>
-                    )}
+                        </div>
+
+                        <div className="grid gap-3">
+                            <label className="text-[10px] font-black text-neutral-500 ml-1 uppercase tracking-widest">Session Notes</label>
+                            <textarea
+                                name="notes"
+                                className="w-full bg-neutral-800/50 border border-neutral-700/50 rounded-2xl px-6 py-4 outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500 transition-all h-24 text-sm resize-none font-medium"
+                                placeholder="Add some context to your mission today..."
+                            />
+                        </div>
+                    </div>
+
+                    <div className="flex flex-col gap-4 pt-4 border-t border-neutral-800">
+                        <div className="flex gap-4">
+                            <button
+                                type="submit"
+                                disabled={loading}
+                                className="flex-1 bg-neutral-800 text-white font-bold py-4 rounded-2xl border border-neutral-700 hover:bg-neutral-700 transition-all disabled:opacity-50 active:scale-95 flex items-center justify-center gap-2"
+                            >
+                                {loading ? "Saving..." : "Save Log"}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleFinish}
+                                className="flex-1 bg-yellow-500 text-neutral-950 font-black py-4 rounded-2xl hover:bg-yellow-400 transition-all shadow-xl shadow-yellow-500/20 active:scale-95"
+                            >
+                                Finish & Submit
+                            </button>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setIsOpen(false)}
+                            className="text-neutral-500 hover:text-white text-xs font-bold transition-colors"
+                        >
+                            Discard & Cancel
+                        </button>
+                    </div>
                 </form>
             </div>
             <style jsx>{`

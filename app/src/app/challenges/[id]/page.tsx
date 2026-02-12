@@ -12,8 +12,10 @@ import {
     CheckCircle2,
     User as UserIcon,
     Crown,
+    LayoutDashboard,
 } from "lucide-react"
 import JoinChallengeModal from "@/app/components/JoinChallengeModal"
+import ActivityLogger from "@/app/components/ActivityLogger"
 import DateDisplay from "@/app/components/DateDisplay"
 
 export default async function ChallengeDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -83,10 +85,16 @@ export default async function ChallengeDetailPage({ params }: { params: Promise<
                 <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/10 to-transparent pointer-events-none" />
                 <div className="container mx-auto px-6 py-16 relative">
                     <div className="max-w-4xl">
-                        <Link href="/dashboard" className="flex items-center gap-2">
-                            <Trophy className="h-6 w-6 text-yellow-500" />
-                            <span className="text-xl font-bold">Challenge.io</span>
-                        </Link>
+                        <div className="flex items-center justify-between mb-8">
+                            <Link href="/dashboard" className="flex items-center gap-2">
+                                <Trophy className="h-6 w-6 text-yellow-500" />
+                                <span className="text-xl font-bold">Challenge.io</span>
+                            </Link>
+                            <Link href="/dashboard" className="flex items-center gap-2 bg-neutral-800/50 hover:bg-neutral-800 border border-neutral-700/50 px-4 py-2 rounded-xl text-sm font-bold transition-all text-neutral-300 hover:text-white">
+                                <LayoutDashboard className="h-4 w-4" />
+                                Dashboard
+                            </Link>
+                        </div>
                         <h1 className="text-5xl font-black mb-6 tracking-tight">{challenge.name}</h1>
                         <p className="text-xl text-neutral-400 mb-8 max-w-2xl leading-relaxed whitespace-pre-wrap">
                             {challenge.description}
@@ -114,7 +122,28 @@ export default async function ChallengeDetailPage({ params }: { params: Promise<
                                 </div>
                             </div>
 
-                            {!isParticipant && session && (
+                            {isParticipant && (
+                                <ActivityLogger
+                                    challengeId={challenge.id}
+                                    challengeName={challenge.name}
+                                    startDate={challenge.startDate}
+                                    endDate={challenge.endDate}
+                                    participants={challenge.participants
+                                        .filter(p => p.userId === session?.user?.id)
+                                        .map(p => ({
+                                            id: p.id,
+                                            name: p.name
+                                        }))}
+                                    metrics={challenge.metrics.map(m => ({
+                                        id: m.id,
+                                        name: m.name,
+                                        unit: m.unit,
+                                        qualifiers: m.qualifiers || []
+                                    }))}
+                                />
+                            )}
+
+                            {session && !isParticipant && (
                                 <JoinChallengeModal
                                     challengeId={challenge.id}
                                     challengeName={challenge.name}

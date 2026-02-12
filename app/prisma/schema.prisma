@@ -87,6 +87,7 @@ model ChallengeMetric {
   challengeId        String
   name               String
   unit               String
+  inputType          MetricInputType   @default(NUMBER)
   aggregationMethod  AggregationMethod @default(SUM)
   scoringFrequency   ScoringFrequency  @default(DAILY)
   maxPointsPerPeriod Float?
@@ -208,6 +209,12 @@ enum ComparisonType {
   RANGE
   GREATER_THAN
   GREATER_THAN_EQUAL
+}
+
+enum MetricInputType {
+  NUMBER
+  CHECKBOX
+  TEXT
 }
 
 enum ParticipantStatus {

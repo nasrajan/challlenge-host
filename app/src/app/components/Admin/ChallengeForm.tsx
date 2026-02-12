@@ -16,7 +16,8 @@ import { memo, useCallback, useEffect, useMemo, useState } from "react"
 import {
     AggregationMethod,
     ScoringFrequency,
-    ComparisonType
+    ComparisonType,
+    MetricInputType
 } from "@prisma/client"
 import { toLocalISOString } from "@/lib/dateUtils"
 
@@ -25,18 +26,19 @@ interface ScoringRule {
     minValue: number | null;
     maxValue: number | null;
     points: number;
-    qualifierValue: string;
+    qualifierValue?: string;
 }
 
 interface Metric {
     id: string; // client-side only or DB id
     name: string;
     unit: string;
+    inputType: MetricInputType;
     aggregationMethod: AggregationMethod;
     scoringFrequency: ScoringFrequency;
     maxPointsPerPeriod: number | null;
     maxPointsTotal: number | null;
-    qualifiers: { value: string }[];
+    qualifiers: { id: string; value: string }[];
     scoringRules: ScoringRule[];
 }
 
@@ -67,6 +69,7 @@ export default function ChallengeForm({ initialData, mode }: ChallengeFormProps)
         id: m.id || Math.random().toString(36).substr(2, 9),
         name: m.name,
         unit: m.unit,
+        inputType: m.inputType || "NUMBER",
         aggregationMethod: m.aggregationMethod,
         scoringFrequency: m.scoringFrequency,
         maxPointsPerPeriod: m.maxPointsPerPeriod,
@@ -84,6 +87,7 @@ export default function ChallengeForm({ initialData, mode }: ChallengeFormProps)
                 id: Math.random().toString(36).substr(2, 9),
                 name: "",
                 unit: "",
+                inputType: "NUMBER",
                 aggregationMethod: "SUM",
                 scoringFrequency: "DAILY",
                 maxPointsPerPeriod: null,
@@ -102,13 +106,14 @@ export default function ChallengeForm({ initialData, mode }: ChallengeFormProps)
     const [metrics, setMetrics] = useState<Metric[]>(defaultMetrics)
 
     const addMetric = useCallback(() => {
-        const newId = Math.random().toString(36).substr(2, 9)
+        const newId = crypto.randomUUID()
         setMetrics((prev) => [
             ...prev,
             {
                 id: newId,
                 name: "",
                 unit: "",
+                inputType: "NUMBER",
                 aggregationMethod: "SUM",
                 scoringFrequency: "DAILY",
                 maxPointsPerPeriod: null,
@@ -401,19 +406,63 @@ const MetricEditor = memo(function MetricEditor({
                     />
                 </div>
                 <div className="grid gap-2">
-                    <label className="text-sm font-semibold text-neutral-400 tracking-wider">Aggregation</label>
+                    <label className="text-sm font-semibold text-neutral-400 tracking-wider">Input Type</label>
                     <select
-                        value={metric.aggregationMethod}
-                        onChange={(e) => updateMetric({ aggregationMethod: e.target.value as AggregationMethod })}
+                        value={metric.inputType}
+                        onChange={(e) => {
+                            const newType = e.target.value as MetricInputType;
+                            const updates: Partial<Metric> = { inputType: newType };
+
+                            if (newType === 'CHECKBOX') {
+                                updates.aggregationMethod = 'SUM';
+                                updates.maxPointsPerPeriod = null;
+                                updates.maxPointsTotal = null;
+                                // Reset to simple rule for checkbox
+                                updates.scoringRules = [{
+                                    comparisonType: 'GREATER_THAN_EQUAL',
+                                    minValue: 1,
+                                    maxValue: null,
+                                    points: metric.scoringRules[0]?.points || 1,
+                                }];
+                            }
+                            updateMetric(updates);
+                        }}
                         className="w-full bg-neutral-800/50 border border-neutral-700/50 rounded-xl px-6 py-3 text-neutral-100 outline-none focus:ring-1 focus:ring-yellow-500 transition-all appearance-none"
                     >
-                        <option value="SUM">SUM (Total logs)</option>
-                        <option value="COUNT">COUNT (Number of logs)</option>
-                        <option value="MAX">MAX (Highest log)</option>
-                        <option value="MIN">MIN (Lowest log)</option>
-                        <option value="AVERAGE">AVERAGE</option>
+                        <option value="NUMBER">Number</option>
+                        <option value="CHECKBOX">Checkbox</option>
+                        <option value="TEXT">Text</option>
                     </select>
                 </div>
+
+                {metric.inputType !== 'CHECKBOX' && (
+                    <>
+                        <div className="grid gap-2">
+                            <label className="text-sm font-semibold text-neutral-400 tracking-wider">Unit</label>
+                            <input
+                                value={metric.unit}
+                                onChange={(e) => updateMetric({ unit: e.target.value })}
+                                className="w-full bg-neutral-800/50 border border-neutral-700/50 rounded-xl px-6 py-3 text-neutral-100 outline-none focus:ring-1 focus:ring-yellow-500 transition-all"
+                                placeholder="e.g. steps"
+                            />
+                        </div>
+                        <div className="grid gap-2">
+                            <label className="text-sm font-semibold text-neutral-400 tracking-wider">Aggregation</label>
+                            <select
+                                value={metric.aggregationMethod}
+                                onChange={(e) => updateMetric({ aggregationMethod: e.target.value as AggregationMethod })}
+                                className="w-full bg-neutral-800/50 border border-neutral-700/50 rounded-xl px-6 py-3 text-neutral-100 outline-none focus:ring-1 focus:ring-yellow-500 transition-all appearance-none"
+                            >
+                                <option value="SUM">SUM (Total logs)</option>
+                                <option value="COUNT">COUNT (Number of logs)</option>
+                                <option value="MAX">MAX (Highest log)</option>
+                                <option value="MIN">MIN (Lowest log)</option>
+                                <option value="AVERAGE">AVERAGE</option>
+                            </select>
+                        </div>
+                    </>
+                )}
+
                 <div className="grid gap-2">
                     <label className="text-sm font-semibold text-neutral-400 tracking-wider">Frequency</label>
                     <select
@@ -427,7 +476,9 @@ const MetricEditor = memo(function MetricEditor({
                     </select>
                 </div>
             </div>
+        
 
+        {metric.inputType !== 'CHECKBOX' && (
             <div className="grid sm:grid-cols-2 gap-8 bg-neutral-950/50 p-6 rounded-2xl border border-neutral-800/50">
                 <div className="grid gap-2">
                     <label className="text-xs font-bold text-neutral-500 flex items-center gap-2">
@@ -452,7 +503,32 @@ const MetricEditor = memo(function MetricEditor({
                     />
                 </div>
             </div>
+        )}
 
+        {metric.inputType === 'CHECKBOX' ? (
+                <div className="space-y-4 pt-4 border-t border-neutral-800/50">
+                    <h4 className="text-sm font-bold text-neutral-100">Scoring</h4>
+                    <div className="grid gap-2">
+                        <label className="text-xs font-bold text-neutral-500">Points per completion</label>
+                        <input
+                            type="number"
+                            value={metric.scoringRules[0]?.points || 1}
+                            onChange={(e) => {
+                                updateMetric({
+                                    scoringRules: [{
+                                        comparisonType: 'GREATER_THAN_EQUAL',
+                                        minValue: 1,
+                                        maxValue: null,
+                                        points: parseFloat(e.target.value) || 0,
+                                        qualifierValue: 'NONE'
+                                    }]
+                                });
+                            }}
+                            className="w-32 bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-2 text-sm outline-none focus:ring-1 focus:ring-yellow-500 font-black text-yellow-500"
+                        />
+                    </div>
+                </div>
+            ) : (
             <div className="space-y-4 pt-4 border-t border-neutral-800/50">
                 <div className="flex items-center justify-between">
                     <h4 className="text-sm font-bold text-neutral-100">Scoring Rules</h4>
@@ -546,6 +622,7 @@ const MetricEditor = memo(function MetricEditor({
                     ))}
                 </div>
             </div>
-        </div>
+        )}
+    </div>
     )
 })

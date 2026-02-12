@@ -103,6 +103,7 @@ export async function createChallenge(formData: FormData) {
                 create: metricsData.map((m: any) => ({
                     name: m.name,
                     unit: m.unit,
+                    inputType: m.inputType,
                     aggregationMethod: m.aggregationMethod,
                     scoringFrequency: m.scoringFrequency,
                     maxPointsPerPeriod: m.maxPointsPerPeriod,
@@ -141,7 +142,7 @@ export async function logActivities(data: {
     challengeId: string;
     logDate: string;
     notes: string;
-    activities: { metricId: string; value: number }[];
+    activities: { metricId: string; value: number; notes?: string }[];
 }) {
     const session = await getServerSession(authOptions)
     if (!session) throw new Error("Unauthorized")
@@ -159,7 +160,7 @@ export async function logActivities(data: {
                         metricId: activity.metricId,
                         value: activity.value,
                         date,
-                        notes
+                        notes: activity.notes || notes
                     }
                 });
             }
@@ -294,6 +295,7 @@ export async function updateChallenge(challengeId: string, formData: FormData) {
                         data: {
                             name: m.name,
                             unit: m.unit,
+                            inputType: m.inputType,
                             aggregationMethod: m.aggregationMethod,
                             scoringFrequency: m.scoringFrequency,
                             maxPointsPerPeriod: m.maxPointsPerPeriod,
@@ -333,6 +335,7 @@ export async function updateChallenge(challengeId: string, formData: FormData) {
                             challengeId: challengeId,
                             name: m.name,
                             unit: m.unit,
+                            inputType: m.inputType,
                             aggregationMethod: m.aggregationMethod,
                             scoringFrequency: m.scoringFrequency,
                             maxPointsPerPeriod: m.maxPointsPerPeriod,

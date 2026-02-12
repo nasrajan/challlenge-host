@@ -34,8 +34,8 @@ export function getPeriodInterval(date: Date, frequency: ScoringFrequency): Peri
     return { start: start!, end: end! };
 }
 
-export async function calculateUserScoreForMetric(
-    userId: string,
+export async function calculateParticipantScoreForMetric(
+    participantId: string,
     metricId: string,
     asOfDate: Date = new Date()
 ) {
@@ -50,19 +50,15 @@ export async function calculateUserScoreForMetric(
 
     if (!metric) return null;
 
-    // Fetch the participant's display name for this challenge
     const participant = await prisma.participant.findUnique({
-        where: {
-            userId_challengeId: {
-                userId,
-                challengeId: metric.challengeId
-            }
-        }
+        where: { id: participantId }
     });
+
+    if (!participant) return null;
 
     const logs = await prisma.activityLog.findMany({
         where: {
-            userId,
+            participantId,
             metricId,
             date: {
                 gte: metric.challenge.startDate,
@@ -104,7 +100,6 @@ export async function calculateUserScoreForMetric(
             } else if (metric.aggregationMethod === "MIN") {
                 qualifierGroups.set(qId, currentVal === 0 ? log.value : Math.min(currentVal, log.value));
             } else if (metric.aggregationMethod === "AVERAGE") {
-                // Average is tricky in incremental, we'll just sum for now and divide at the end
                 qualifierGroups.set(qId, currentVal + log.value);
             }
         });
@@ -122,7 +117,6 @@ export async function calculateUserScoreForMetric(
         qualifierGroups.forEach((aggregatedValue, qualifierId) => {
             const relevantRules = metric.scoringRules.filter(rule => rule.qualifierId === qualifierId);
 
-            // If no qualifier-specific rules, check for catch-all (null qualifier rules)
             const rulesToEvaluate = relevantRules.length > 0
                 ? relevantRules
                 : metric.scoringRules.filter(rule => rule.qualifierId === null);
@@ -161,10 +155,11 @@ export async function calculateUserScoreForMetric(
         }
 
         snapshots.push({
-            userId,
+            userId: participant.userId,
+            participantId,
             challengeId: metric.challengeId,
             metricId: metric.id,
-            displayName: participant?.displayName || null,
+            displayName: participant.displayName || participant.name,
             periodStart: start,
             periodEnd: end,
             rawPoints: periodRawPoints,
@@ -174,9 +169,9 @@ export async function calculateUserScoreForMetric(
     }
 
     // Update ScoreSnapshots in DB
-    // First clear existing snapshots for this user/metric
+    // First clear existing snapshots for this participant/metric
     await prisma.scoreSnapshot.deleteMany({
-        where: { userId, metricId }
+        where: { participantId, metricId }
     });
 
     await prisma.scoreSnapshot.createMany({
@@ -186,14 +181,14 @@ export async function calculateUserScoreForMetric(
     return totalCumulativePoints;
 }
 
-export async function recalculateUserChallengeScore(userId: string, challengeId: string) {
+export async function recalculateParticipantChallengeScore(participantId: string, challengeId: string) {
     const metrics = await prisma.challengeMetric.findMany({
         where: { challengeId }
     });
 
     let grandTotal = 0;
     for (const metric of metrics) {
-        const metricScore = await calculateUserScoreForMetric(userId, metric.id);
+        const metricScore = await calculateParticipantScoreForMetric(participantId, metric.id);
         grandTotal += metricScore || 0;
     }
 

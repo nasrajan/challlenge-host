@@ -130,52 +130,61 @@ model Participant {
   id          String            @id @default(cuid())
   userId      String
   challengeId String
+  name        String            // Added name field
   displayName String?
   joinedAt    DateTime          @default(now())
   status      ParticipantStatus @default(PENDING)
-  challenge   Challenge         @relation(fields: [challengeId], references: [id])
-  user        User              @relation(fields: [userId], references: [id])
+  challenge   Challenge         @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activityLogs ActivityLog[]
+  scoreSnapshots ScoreSnapshot[]
 
-  @@unique([userId, challengeId])
+  @@unique([userId, challengeId, name]) // Updated unique constraint
 }
 
 model ActivityLog {
-  id          String           @id @default(cuid())
-  userId      String
-  challengeId String
-  date        DateTime
-  value       Float
-  evidenceUrl String?
-  notes       String?
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
-  metricId    String
-  qualifierId String?
-  challenge   Challenge        @relation(fields: [challengeId], references: [id])
-  metric      ChallengeMetric  @relation(fields: [metricId], references: [id])
-  qualifier   MetricQualifier? @relation(fields: [qualifierId], references: [id])
-  user        User             @relation(fields: [userId], references: [id])
+  id            String           @id @default(cuid())
+  userId        String
+  participantId String?          // Optional for migration, will be required later
+  challengeId   String
+  date          DateTime
+  value         Float
+  evidenceUrl   String?
+  notes         String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  metricId      String
+  qualifierId   String?
+  challenge     Challenge        @relation(fields: [challengeId], references: [id])
+  metric        ChallengeMetric  @relation(fields: [metricId], references: [id])
+  qualifier     MetricQualifier? @relation(fields: [qualifierId], references: [id])
+  user          User             @relation(fields: [userId], references: [id])
+  participant   Participant?     @relation(fields: [participantId], references: [id], onDelete: Cascade)
 
   @@index([userId, challengeId, metricId])
+  @@index([participantId])
 }
 
 model ScoreSnapshot {
-  id           String          @id @default(cuid())
-  userId       String
-  challengeId  String
-  metricId     String
-  displayName  String?
-  periodStart  DateTime
-  periodEnd    DateTime
-  rawPoints    Float
-  cappedPoints Float
-  totalPoints  Float
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
-  metric       ChallengeMetric @relation(fields: [metricId], references: [id])
-  user         User            @relation(fields: [userId], references: [id])
+  id            String          @id @default(cuid())
+  userId        String
+  participantId String?         // Optional for migration
+  challengeId   String
+  metricId      String
+  displayName   String?
+  periodStart   DateTime
+  periodEnd     DateTime
+  rawPoints     Float
+  cappedPoints  Float
+  totalPoints   Float
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  metric        ChallengeMetric @relation(fields: [metricId], references: [id])
+  user          User            @relation(fields: [userId], references: [id])
+  participant   Participant?    @relation(fields: [participantId], references: [id], onDelete: Cascade)
 
   @@index([userId, challengeId, metricId])
+  @@index([participantId])
 }
 
 enum UserRole {

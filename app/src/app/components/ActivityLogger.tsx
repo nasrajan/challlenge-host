@@ -14,16 +14,30 @@ interface Metric {
     qualifiers: { id: string; value: string }[];
 }
 
+interface Participant {
+    id: string;
+    name: string;
+}
+
 interface ActivityLoggerProps {
     challengeId: string;
     challengeName: string;
     metrics: Metric[];
+    participants: Participant[]; // Added participants
     startDate: Date;
     endDate: Date;
 }
 
-export default function ActivityLogger({ challengeId, challengeName, metrics, startDate, endDate }: ActivityLoggerProps) {
+export default function ActivityLogger({
+    challengeId,
+    challengeName,
+    metrics,
+    participants,
+    startDate,
+    endDate
+}: ActivityLoggerProps) {
     const [isOpen, setIsOpen] = useState(false)
+    const [selectedParticipantId, setSelectedParticipantId] = useState(participants[0]?.id || "")
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [success, setSuccess] = useState(false)
@@ -33,6 +47,12 @@ export default function ActivityLogger({ challengeId, challengeName, metrics, st
         e.preventDefault()
         setLoading(true)
         setError(null)
+
+        if (!selectedParticipantId) {
+            setError("Please select a participant.")
+            setLoading(false)
+            return
+        }
 
         const formData = new FormData(e.currentTarget)
         const entries = [];
@@ -69,6 +89,7 @@ export default function ActivityLogger({ challengeId, challengeName, metrics, st
 
         const result = await logActivities({
             challengeId,
+            participantId: selectedParticipantId, // Pass selected participant
             logDate,
             notes,
             activities: entries
@@ -109,7 +130,7 @@ export default function ActivityLogger({ challengeId, challengeName, metrics, st
                             <Activity className="h-6 w-6 text-yellow-500" />
                             Update Activities
                         </h3>
-                        <p className="text-xs text-neutral-500 font-bold tracking-widest mt-1">{challengeName}</p>
+                        <p className="text-xs text-neutral-500 font-bold tracking-widest mt-1 uppercase">{challengeName}</p>
                     </div>
                     <button onClick={() => setIsOpen(false)} className="p-2 hover:bg-neutral-800 rounded-xl text-neutral-500 hover:text-white transition-all">
                         <X className="h-6 w-6" />
@@ -134,31 +155,46 @@ export default function ActivityLogger({ challengeId, challengeName, metrics, st
                             )}
 
                             <div className="grid gap-6">
-                                <div className="grid gap-3">
-                                    <label className="text-[10px] font-black text-neutral-500 ml-1">Date</label>
-                                    <div className="relative group">
-                                        <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-neutral-500 group-focus-within:text-yellow-500 transition-colors" />
-                                        <input
-                                            name="logDate"
-                                            type="date"
-                                            defaultValue={(() => {
-                                                const today = new Date();
-                                                const start = new Date(startDate);
-                                                const end = new Date(endDate);
-                                                if (today < start) return toLocalISOString(start);
-                                                if (today > end) return toLocalISOString(end);
-                                                return toLocalISOString(today);
-                                            })()}
-                                            min={toLocalISOString(startDate)}
-                                            max={toLocalISOString(endDate)}
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid gap-3">
+                                        <label className="text-[10px] font-black text-neutral-500 ml-1 uppercase tracking-widest">Participant</label>
+                                        <select
+                                            value={selectedParticipantId}
+                                            onChange={(e) => setSelectedParticipantId(e.target.value)}
+                                            className="w-full bg-neutral-800/50 border border-neutral-700/50 rounded-2xl px-4 py-4 outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500 transition-all font-bold appearance-none text-sm"
                                             required
-                                            className="w-full bg-neutral-800/50 border border-neutral-700/50 rounded-2xl pl-12 pr-6 py-4 outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500 transition-all font-bold"
-                                        />
+                                        >
+                                            {participants.map(p => (
+                                                <option key={p.id} value={p.id}>{p.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="grid gap-3">
+                                        <label className="text-[10px] font-black text-neutral-500 ml-1 uppercase tracking-widest">Date</label>
+                                        <div className="relative group">
+                                            <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-neutral-500 group-focus-within:text-yellow-500 transition-colors" />
+                                            <input
+                                                name="logDate"
+                                                type="date"
+                                                defaultValue={(() => {
+                                                    const today = new Date();
+                                                    const start = new Date(startDate);
+                                                    const end = new Date(endDate);
+                                                    if (today < start) return toLocalISOString(start);
+                                                    if (today > end) return toLocalISOString(end);
+                                                    return toLocalISOString(today);
+                                                })()}
+                                                min={toLocalISOString(startDate)}
+                                                max={toLocalISOString(endDate)}
+                                                required
+                                                className="w-full bg-neutral-800/50 border border-neutral-700/50 rounded-2xl pl-12 pr-6 py-4 outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500 transition-all font-bold text-sm"
+                                            />
+                                        </div>
                                     </div>
                                 </div>
 
                                 <div className="space-y-4">
-                                    <label className="text-[10px] font-black text-neutral-500 ml-1">Daily Scores</label>
+                                    <label className="text-[10px] font-black text-neutral-500 ml-1 uppercase tracking-widest">Scores for the day</label>
                                     <div className="grid gap-4">
                                         {metrics.map(metric => (
                                             <div key={metric.id} className="bg-neutral-800/30 border border-neutral-800/50 rounded-2xl p-4 flex items-center gap-4 group hover:border-neutral-700 transition-all">
@@ -178,7 +214,7 @@ export default function ActivityLogger({ challengeId, challengeName, metrics, st
                                                         <input
                                                             name={`value_${metric.id}`}
                                                             type="text"
-                                                            placeholder="Enter note..."
+                                                            placeholder="Note..."
                                                             className="w-full bg-neutral-900 border border-neutral-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500 transition-all text-sm font-medium text-neutral-200"
                                                         />
                                                     ) : (
@@ -198,10 +234,10 @@ export default function ActivityLogger({ challengeId, challengeName, metrics, st
                                 </div>
 
                                 <div className="grid gap-3">
-                                    <label className="text-[10px] font-black text-neutral-500 ml-1">Notes (Optional)</label>
+                                    <label className="text-[10px] font-black text-neutral-500 ml-1 uppercase tracking-widest">Session Notes</label>
                                     <textarea
                                         name="notes"
-                                        className="w-full bg-neutral-800/50 border border-neutral-700/50 rounded-2xl px-6 py-4 outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500 transition-all h-24 text-sm resize-none"
+                                        className="w-full bg-neutral-800/50 border border-neutral-700/50 rounded-2xl px-6 py-4 outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500 transition-all h-24 text-sm resize-none font-medium"
                                         placeholder="Add some context to your mission today..."
                                     />
                                 </div>
@@ -220,7 +256,7 @@ export default function ActivityLogger({ challengeId, challengeName, metrics, st
                                     type="submit"
                                     className="flex-[2] bg-yellow-500 text-neutral-950 font-black py-4 rounded-2xl hover:bg-yellow-400 transition-all shadow-xl shadow-yellow-500/20 disabled:opacity-50 active:scale-95"
                                 >
-                                    {loading ? "Saving..." : "Save"}
+                                    {loading ? "Saving..." : "Save Log"}
                                 </button>
                             </div>
                         </>

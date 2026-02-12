@@ -8,7 +8,7 @@ import {
 } from "@prisma/client"
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
-import { calculateUserScoreForMetric } from "@/lib/scoring"
+import { recalculateParticipantChallengeScore, calculateParticipantScoreForMetric } from "@/lib/scoring"
 
 export async function syncChallengeStatuses(now: Date = new Date()) {
     await prisma.$transaction([
@@ -93,12 +93,6 @@ export async function createChallenge(formData: FormData) {
             maxParticipants,
             organizer: { connect: { id: session.user.id } },
             status: "UPCOMING",
-            participants: {
-                create: {
-                    userId: session.user.id,
-                    status: "APPROVED"
-                }
-            },
             metrics: {
                 create: metricsData.map((m: any) => ({
                     name: m.name,
@@ -140,6 +134,7 @@ export async function createChallenge(formData: FormData) {
 
 export async function logActivities(data: {
     challengeId: string;
+    participantId: string;
     logDate: string;
     notes: string;
     activities: { metricId: string; value: number; notes?: string }[];
@@ -147,7 +142,7 @@ export async function logActivities(data: {
     const session = await getServerSession(authOptions)
     if (!session) throw new Error("Unauthorized")
 
-    const { challengeId, logDate, notes, activities } = data;
+    const { challengeId, participantId, logDate, notes, activities } = data;
     const date = new Date(logDate);
 
     try {
@@ -156,6 +151,7 @@ export async function logActivities(data: {
                 await tx.activityLog.create({
                     data: {
                         userId: session.user.id,
+                        participantId,
                         challengeId,
                         metricId: activity.metricId,
                         value: activity.value,
@@ -168,7 +164,7 @@ export async function logActivities(data: {
 
         // Recalculate scores after logs are created
         for (const activity of activities) {
-            await calculateUserScoreForMetric(session.user.id, activity.metricId);
+            await calculateParticipantScoreForMetric(participantId, activity.metricId);
         }
 
         revalidatePath(`/challenges/${challengeId}`)
@@ -198,16 +194,12 @@ export async function logActivities(data: {
     });
 }*/
 
-export async function joinChallenge(challengeId: string, displayName: string) {
+export async function joinChallenge(challengeId: string, names: string[]) {
     const session = await getServerSession(authOptions)
     if (!session) throw new Error("Unauthorized")
 
-    // Validate display name
-    if (!displayName || displayName.trim().length < 2) {
-        throw new Error("Display name must be at least 2 characters")
-    }
-    if (displayName.trim().length > 50) {
-        throw new Error("Display name must be 50 characters or less")
+    if (!names || names.length === 0) {
+        throw new Error("At least one participant name is required")
     }
 
     const challenge = await prisma.challenge.findUnique({
@@ -218,14 +210,19 @@ export async function joinChallenge(challengeId: string, displayName: string) {
 
     const status = challenge.requiresApproval ? "PENDING" : "APPROVED"
 
-    await prisma.participant.create({
-        data: {
-            userId: session.user.id,
-            challengeId,
-            displayName: displayName.trim(),
-            status: status as any
-        }
-    })
+    await prisma.$transaction(
+        names.map(name =>
+            prisma.participant.create({
+                data: {
+                    userId: session.user.id,
+                    challengeId,
+                    name: name.trim(),
+                    displayName: name.trim(),
+                    status: status as any
+                }
+            })
+        )
+    )
 
     revalidatePath(`/challenges/${challengeId}`)
     revalidatePath("/dashboard")

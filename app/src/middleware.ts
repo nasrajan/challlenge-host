@@ -27,6 +27,10 @@ export default withAuth(
 
         // Admin route protection
         if (path.startsWith("/admin") && token?.role !== "ADMIN") {
+            const organizerEditPath = /^\/admin\/challenges\/[^/]+\/edit$/;
+            if (token?.role === "ORGANIZER" && organizerEditPath.test(path)) {
+                return NextResponse.next();
+            }
             return NextResponse.redirect(new URL("/dashboard", req.url));
         }
 

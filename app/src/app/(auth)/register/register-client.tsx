@@ -99,7 +99,7 @@ export default function RegisterClient() {
                                     type="text"
                                     autoComplete="name"
                                     required
-                                    className="block w-full rounded-md border-0 bg-neutral-800 py-1.5 text-neutral-100 shadow-sm ring-1 ring-inset ring-neutral-700 placeholder:text-neutral-500 focus:ring-2 focus:ring-inset focus:ring-yellow-500 sm:text-sm sm:leading-6"
+                                    className="block w-full rounded-md border-0 bg-neutral-800 px-4 py-1.5 text-neutral-100 shadow-sm ring-1 ring-inset ring-neutral-700 placeholder:text-neutral-500 focus:ring-2 focus:ring-inset focus:ring-yellow-500 sm:text-sm sm:leading-6"
                                 />
                             </div>
                         </div>
@@ -115,7 +115,7 @@ export default function RegisterClient() {
                                     type="email"
                                     autoComplete="email"
                                     required
-                                    className="block w-full rounded-md border-0 bg-neutral-800 py-1.5 text-neutral-100 shadow-sm ring-1 ring-inset ring-neutral-700 placeholder:text-neutral-500 focus:ring-2 focus:ring-inset focus:ring-yellow-500 sm:text-sm sm:leading-6"
+                                    className="block w-full rounded-md border-0 bg-neutral-800 px-4 py-1.5 text-neutral-100 shadow-sm ring-1 ring-inset ring-neutral-700 placeholder:text-neutral-500 focus:ring-2 focus:ring-inset focus:ring-yellow-500 sm:text-sm sm:leading-6"
                                 />
                             </div>
                         </div>
@@ -132,7 +132,7 @@ export default function RegisterClient() {
                                     autoComplete="new-password"
                                     required
                                     minLength={6}
-                                    className="block w-full rounded-md border-0 bg-neutral-800 py-1.5 text-neutral-100 shadow-sm ring-1 ring-inset ring-neutral-700 placeholder:text-neutral-500 focus:ring-2 focus:ring-inset focus:ring-yellow-500 sm:text-sm sm:leading-6"
+                                    className="block w-full rounded-md border-0 bg-neutral-800 px-4 py-1.5 text-neutral-100 shadow-sm ring-1 ring-inset ring-neutral-700 placeholder:text-neutral-500 focus:ring-2 focus:ring-inset focus:ring-yellow-500 sm:text-sm sm:leading-6"
                                 />
                             </div>
                         </div>

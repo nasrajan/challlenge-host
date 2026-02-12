@@ -3,10 +3,14 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import Link from "next/link"
 import { Trophy, Calendar, Users, ChevronRight, Filter } from "lucide-react"
-import { joinChallenge } from "@/app/actions/challenges"
+import { syncChallengeStatuses } from "@/app/actions/challenges"
+import JoinChallengeModal from "@/app/components/JoinChallengeModal"
+import DateDisplay from "@/app/components/DateDisplay"
 
 export default async function ChallengesExplorePage() {
     const session = await getServerSession(authOptions)
+
+    await syncChallengeStatuses()
 
     const challenges = await prisma.challenge.findMany({
         where: { isPublic: true },
@@ -29,6 +33,10 @@ export default async function ChallengesExplorePage() {
         <div className="min-h-screen bg-neutral-950 text-neutral-100 p-8">
             <div className="max-w-6xl mx-auto">
                 <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
+                    <Link href="/dashboard" className="flex items-center gap-2">
+                        <Trophy className="h-6 w-6 text-yellow-500" />
+                        <span className="text-xl font-bold">Challenge.io</span>
+                    </Link>
                     <div>
                         <h1 className="text-4xl font-bold mb-2">Explore Challenges</h1>
                         <p className="text-neutral-400">Join the community and push your limits.</p>
@@ -57,7 +65,7 @@ export default async function ChallengesExplorePage() {
                                 <div className="space-y-3 mb-8 flex-1">
                                     <div className="flex items-center gap-2 text-xs text-neutral-500 font-bold tracking-wider">
                                         <Calendar className="h-4 w-4" />
-                                        {new Date(challenge.startDate).toLocaleDateString()} — {new Date(challenge.endDate).toLocaleDateString()}
+                                        <DateDisplay date={challenge.startDate} /> — <DateDisplay date={challenge.endDate} />
                                     </div>
                                     <div className="flex items-center gap-2 text-xs text-neutral-500 font-bold tracking-wider">
                                         <Users className="h-4 w-4" />
@@ -75,11 +83,10 @@ export default async function ChallengesExplorePage() {
 
                                 <div className="space-y-3">
                                     {session && challenge.participants?.length === 0 && (
-                                        <form action={joinChallenge.bind(null, challenge.id)}>
-                                            <button className="w-full bg-yellow-500 text-neutral-950 py-3 rounded-2xl font-bold hover:bg-yellow-400 transition-all shadow-lg shadow-yellow-500/20 active:scale-95">
-                                                Join the Challenge
-                                            </button>
-                                        </form>
+                                        <JoinChallengeModal
+                                            challengeId={challenge.id}
+                                            challengeName={challenge.name}
+                                        />
                                     )}
                                     {session && challenge.participants?.length > 0 && (
                                         <div className="w-full bg-neutral-800 text-neutral-400 py-3 rounded-2xl font-bold text-center border border-neutral-700">

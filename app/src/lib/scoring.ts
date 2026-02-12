@@ -50,6 +50,16 @@ export async function calculateUserScoreForMetric(
 
     if (!metric) return null;
 
+    // Fetch the participant's display name for this challenge
+    const participant = await prisma.participant.findUnique({
+        where: {
+            userId_challengeId: {
+                userId,
+                challengeId: metric.challengeId
+            }
+        }
+    });
+
     const logs = await prisma.activityLog.findMany({
         where: {
             userId,
@@ -154,6 +164,7 @@ export async function calculateUserScoreForMetric(
             userId,
             challengeId: metric.challengeId,
             metricId: metric.id,
+            displayName: participant?.displayName || null,
             periodStart: start,
             periodEnd: end,
             rawPoints: periodRawPoints,

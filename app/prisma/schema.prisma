@@ -87,6 +87,7 @@ model ChallengeMetric {
   challengeId        String
   name               String
   unit               String
+  inputType          MetricInputType   @default(NUMBER)
   aggregationMethod  AggregationMethod @default(SUM)
   scoringFrequency   ScoringFrequency  @default(DAILY)
   maxPointsPerPeriod Float?
@@ -129,6 +130,7 @@ model Participant {
   id          String            @id @default(cuid())
   userId      String
   challengeId String
+  displayName String?
   joinedAt    DateTime          @default(now())
   status      ParticipantStatus @default(PENDING)
   challenge   Challenge         @relation(fields: [challengeId], references: [id])
@@ -162,6 +164,7 @@ model ScoreSnapshot {
   userId       String
   challengeId  String
   metricId     String
+  displayName  String?
   periodStart  DateTime
   periodEnd    DateTime
   rawPoints    Float
@@ -206,6 +209,12 @@ enum ComparisonType {
   RANGE
   GREATER_THAN
   GREATER_THAN_EQUAL
+}
+
+enum MetricInputType {
+  NUMBER
+  CHECKBOX
+  TEXT
 }
 
 enum ParticipantStatus {

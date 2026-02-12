@@ -1,6 +1,7 @@
 'use client'
 
 import { logActivities } from "@/app/actions/challenges"
+import { toLocalISOString } from "@/lib/dateUtils"
 import { Plus, X, Calendar, Activity, Info, CheckCircle2 } from "lucide-react"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
@@ -9,6 +10,7 @@ interface Metric {
     id: string;
     name: string;
     unit: string;
+    inputType?: string;
     qualifiers: { id: string; value: string }[];
 }
 
@@ -38,12 +40,24 @@ export default function ActivityLogger({ challengeId, challengeName, metrics, st
         const notes = formData.get("notes") as string;
 
         for (const metric of metrics) {
-            const valueStr = formData.get(`value_${metric.id}`) as string;
-            if (valueStr && valueStr.trim() !== "") {
-                entries.push({
-                    metricId: metric.id,
-                    value: parseFloat(valueStr),
-                });
+            if (metric.inputType === 'CHECKBOX') {
+                const checked = formData.get(`value_${metric.id}`) === '1';
+                if (checked) {
+                    entries.push({ metricId: metric.id, value: 1 });
+                }
+            } else if (metric.inputType === 'TEXT') {
+                const text = formData.get(`value_${metric.id}`) as string;
+                if (text && text.trim() !== "") {
+                    entries.push({ metricId: metric.id, value: 1, notes: text });
+                }
+            } else {
+                const valueStr = formData.get(`value_${metric.id}`) as string;
+                if (valueStr && valueStr.trim() !== "") {
+                    entries.push({
+                        metricId: metric.id,
+                        value: parseFloat(valueStr),
+                    });
+                }
             }
         }
 
@@ -131,12 +145,12 @@ export default function ActivityLogger({ challengeId, challengeName, metrics, st
                                                 const today = new Date();
                                                 const start = new Date(startDate);
                                                 const end = new Date(endDate);
-                                                if (today < start) return start.toISOString().split('T')[0];
-                                                if (today > end) return end.toISOString().split('T')[0];
-                                                return today.toISOString().split('T')[0];
+                                                if (today < start) return toLocalISOString(start);
+                                                if (today > end) return toLocalISOString(end);
+                                                return toLocalISOString(today);
                                             })()}
-                                            min={new Date(startDate).toISOString().split('T')[0]}
-                                            max={new Date(endDate).toISOString().split('T')[0]}
+                                            min={toLocalISOString(startDate)}
+                                            max={toLocalISOString(endDate)}
                                             required
                                             className="w-full bg-neutral-800/50 border border-neutral-700/50 rounded-2xl pl-12 pr-6 py-4 outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500 transition-all font-bold"
                                         />
@@ -152,14 +166,31 @@ export default function ActivityLogger({ challengeId, challengeName, metrics, st
                                                     <h4 className="font-bold text-sm text-neutral-200">{metric.name}</h4>
                                                     <span className="text-[10px] font-black text-neutral-500">{metric.unit}</span>
                                                 </div>
-                                                <div className="w-32">
-                                                    <input
-                                                        name={`value_${metric.id}`}
-                                                        type="number"
-                                                        step="any"
-                                                        placeholder="0"
-                                                        className="w-full bg-neutral-900 border border-neutral-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500 transition-all text-right font-black"
-                                                    />
+                                                <div className="w-32 flex justify-end">
+                                                    {metric.inputType === 'CHECKBOX' ? (
+                                                        <input
+                                                            name={`value_${metric.id}`}
+                                                            type="checkbox"
+                                                            value="1"
+                                                            className="h-8 w-8 rounded-lg border-neutral-700 bg-neutral-900 text-yellow-500 focus:ring-yellow-500/50 accent-yellow-500"
+                                                        />
+                                                    ) : metric.inputType === 'TEXT' ? (
+                                                        <input
+                                                            name={`value_${metric.id}`}
+                                                            type="text"
+                                                            placeholder="Enter note..."
+                                                            className="w-full bg-neutral-900 border border-neutral-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500 transition-all text-sm font-medium text-neutral-200"
+                                                        />
+                                                    ) : (
+                                                        <input
+                                                            name={`value_${metric.id}`}
+                                                            type="number"
+                                                            step="any"
+                                                            min="0"
+                                                            placeholder="0"
+                                                            className="w-full bg-neutral-900 border border-neutral-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500 transition-all text-right font-black"
+                                                        />
+                                                    )}
                                                 </div>
                                             </div>
                                         ))}

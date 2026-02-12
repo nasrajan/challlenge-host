@@ -2,9 +2,10 @@ import { authOptions } from "@/lib/auth"
 import { getServerSession } from "next-auth"
 import { redirect } from "next/navigation"
 import Link from "next/link"
-import { Trophy, Plus, Settings, Users, LogOut, ChevronRight, Activity } from "lucide-react"
+import { Trophy, Plus, Settings, Users, LogOut, ChevronRight, Activity, UserCheck, Edit2 } from "lucide-react"
 import { prisma } from "@/lib/prisma"
 import ActivityLogger from "@/app/components/ActivityLogger"
+import { approveParticipant, syncChallengeStatuses } from "@/app/actions/challenges"
 
 export default async function DashboardPage() {
     const session = await getServerSession(authOptions)
@@ -12,6 +13,8 @@ export default async function DashboardPage() {
     if (!session) {
         redirect("/login")
     }
+
+    await syncChallengeStatuses()
 
     const challenges = await prisma.challenge.findMany({
         where: {
@@ -43,6 +46,19 @@ export default async function DashboardPage() {
             }
         }
     })
+
+    const showApprovals = session.user.role === "ORGANIZER" || session.user.role === "ADMIN"
+    const pendingApprovals = showApprovals ? await prisma.participant.findMany({
+        where: {
+            status: "PENDING",
+            ...(session.user.role === "ADMIN" ? {} : { challenge: { organizerId: session.user.id } })
+        },
+        include: {
+            user: true,
+            challenge: true
+        },
+        orderBy: { joinedAt: "desc" }
+    }) : []
 
     // Common UI for all roles, with specific sections rendering conditionally
     return (
@@ -84,6 +100,37 @@ export default async function DashboardPage() {
                 <div className="grid gap-8 lg:grid-cols-3">
                     {/* Main Content Area */}
                     <div className="lg:col-span-2 space-y-8">
+                        {showApprovals && pendingApprovals.length > 0 && (
+                            <section className="bg-neutral-900/40 border border-neutral-800 rounded-3xl overflow-hidden">
+                                <div className="px-6 py-4 border-b border-neutral-800 flex items-center justify-between bg-neutral-900/60">
+                                    <h3 className="text-lg font-bold flex items-center gap-2">
+                                        <UserCheck className="h-5 w-5 text-yellow-500" />
+                                        Pending Approvals
+                                    </h3>
+                                    <span className="text-xs font-black tracking-widest text-neutral-500 bg-neutral-950 px-3 py-1 rounded-full border border-neutral-800">
+                                        {pendingApprovals.length} pending
+                                    </span>
+                                </div>
+                                <div className="divide-y divide-neutral-800">
+                                    {pendingApprovals.map((participant) => (
+                                        <div key={participant.id} className="px-6 py-4 flex items-center gap-4">
+                                            <div className="flex-1 min-w-0">
+                                                <div className="font-bold text-neutral-200 truncate">{participant.user.name}</div>
+                                                <div className="text-xs text-neutral-500 truncate">{participant.user.email}</div>
+                                                <div className="text-xs text-neutral-600 mt-1">
+                                                    {participant.challenge.name}
+                                                </div>
+                                            </div>
+                                            <form action={approveParticipant.bind(null, participant.id)}>
+                                                <button className="bg-yellow-500 text-neutral-950 px-4 py-2 rounded-xl font-bold text-xs hover:bg-yellow-400 transition-all shadow-lg shadow-yellow-500/20">
+                                                    Approve
+                                                </button>
+                                            </form>
+                                        </div>
+                                    ))}
+                                </div>
+                            </section>
+                        )}
                         <section>
                             <div className="flex items-center justify-between mb-6">
                                 <h3 className="text-xl font-bold flex items-center gap-2">
@@ -147,12 +194,23 @@ export default async function DashboardPage() {
                                                         }))}
                                                     />
                                                 )}
-                                                <Link
-                                                    href={`/challenges/${challenge.id}`}
-                                                    className="text-xs font-bold text-neutral-500 hover:text-white flex items-center gap-1 transition-colors px-2"
-                                                >
-                                                    View Details <ChevronRight className="h-3 w-3" />
-                                                </Link>
+                                                <div className="flex items-center gap-3">
+                                                    {challenge.organizerId === session.user.id && (
+                                                        <Link
+                                                            href={`/admin/challenges/${challenge.id}/edit`}
+                                                            className="text-xs font-bold text-neutral-500 hover:text-yellow-500 flex items-center gap-1 transition-colors px-2"
+                                                        >
+                                                            <Edit2 className="h-3 w-3" />
+                                                            Edit
+                                                        </Link>
+                                                    )}
+                                                    <Link
+                                                        href={`/challenges/${challenge.id}`}
+                                                        className="text-xs font-bold text-neutral-500 hover:text-white flex items-center gap-1 transition-colors px-2"
+                                                    >
+                                                        View Details <ChevronRight className="h-3 w-3" />
+                                                    </Link>
+                                                </div>
                                             </div>
                                         </div>
                                     ))}

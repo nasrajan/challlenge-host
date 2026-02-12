@@ -30,12 +30,10 @@ export default async function EditChallengePage({ params }: { params: Promise<{ 
         notFound()
     }
 
-    // Per user request: editing for UPCOMING challenges
-    // If we want to strictly enforce this:
-    if (challenge.status !== 'UPCOMING') {
-        // You could either prevent edit or show a warning. 
-        // For now let's allow admins to edit but prioritize the 'UPCOMING' flow.
-    }
+    if (session.user.role === "ORGANIZER" && challenge.organizerId !== session.user.id) {
+        redirect("/dashboard")
+    } 
+
 
     return (
         <div className="min-h-screen bg-neutral-950 text-neutral-100 p-8">

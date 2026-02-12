@@ -16,18 +16,32 @@ export default async function DashboardPage() {
 
     await syncChallengeStatuses()
 
+    const visibilityFilter = session.user.role === "ADMIN"
+        ? {}
+        : {
+            OR: [
+                { isPublic: true },
+                { organizerId: session.user.id }
+            ]
+        }
+
     const challenges = await prisma.challenge.findMany({
         where: {
-            OR: [
-                { organizerId: session.user.id },
+            AND: [
                 {
-                    participants: {
-                        some: {
-                            userId: session.user.id,
-                            status: "APPROVED"
+                    OR: [
+                        { organizerId: session.user.id },
+                        {
+                            participants: {
+                                some: {
+                                    userId: session.user.id,
+                                    status: "APPROVED"
+                                }
+                            }
                         }
-                    }
-                }
+                    ]
+                },
+                visibilityFilter
             ]
         },
         include: {
@@ -36,7 +50,7 @@ export default async function DashboardPage() {
                     qualifiers: true,
                     scoreSnapshots: {
                         where: { userId: session.user.id },
-                        orderBy: { createdAt: 'desc' },
+                        orderBy: { periodStart: 'desc' },
                         take: 1
                     }
                 }
@@ -166,11 +180,18 @@ export default async function DashboardPage() {
                                                 <div className="flex flex-wrap gap-4">
                                                     {challenge.metrics.map(m => {
                                                         const lastSnapshot = m.scoreSnapshots[0];
+                                                        const now = new Date();
+                                                        const isCurrentPeriod = lastSnapshot &&
+                                                            now >= lastSnapshot.periodStart &&
+                                                            now <= lastSnapshot.periodEnd;
+
+                                                        const displayScore = isCurrentPeriod ? (lastSnapshot.cappedPoints || 0) : 0;
+
                                                         return (
                                                             <div key={m.id} className="bg-neutral-950/50 rounded-2xl p-4 border border-neutral-800/50 min-w-[140px]">
                                                                 <div className="text-[10px] font-bold text-neutral-500 mb-1">{m.name}</div>
                                                                 <div className="text-lg font-black text-white">
-                                                                    {lastSnapshot?.totalPoints || 0}
+                                                                    {displayScore}
                                                                     <span className="text-xs text-neutral-500 font-medium ml-1">pts</span>
                                                                 </div>
                                                             </div>
@@ -188,13 +209,14 @@ export default async function DashboardPage() {
                                                         endDate={challenge.endDate}
                                                         participants={challenge.participants.map(p => ({
                                                             id: p.id,
-                                                            name: p.name
+                                                            name: <p className="displayName"></p>
                                                         }))}
                                                         metrics={challenge.metrics.map(m => ({
                                                             id: m.id,
                                                             name: m.name,
                                                             unit: m.unit,
-                                                            qualifiers: m.qualifiers
+                                                            qualifiers: m.qualifiers,
+                                                            inputType: m.inputType // Ensure inputType is passed
                                                         }))}
                                                     />
                                                 )}

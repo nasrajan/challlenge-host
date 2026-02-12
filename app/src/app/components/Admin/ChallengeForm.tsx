@@ -52,13 +52,17 @@ interface ChallengeFormProps {
         isPublic: boolean;
         requiresApproval: boolean;
         showLeaderboard: boolean;
+        allowMultiParticipants: boolean;
         maxParticipants: number | null;
+        organizerId?: string;
         metrics: any[];
     };
     mode: 'CREATE' | 'EDIT';
+    organizers?: { id: string; name: string | null; email: string | null }[];
+    currentUserRole?: string;
 }
 
-export default function ChallengeForm({ initialData, mode }: ChallengeFormProps) {
+export default function ChallengeForm({ initialData, mode, organizers, currentUserRole }: ChallengeFormProps) {
     const router = useRouter()
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
@@ -289,6 +293,42 @@ export default function ChallengeForm({ initialData, mode }: ChallengeFormProps)
                                 <div className="text-xs text-neutral-500">Public ranking visible</div>
                             </div>
                         </label>
+
+                        <label className="flex items-center gap-3 p-4 bg-neutral-800/30 border border-neutral-700/50 rounded-2xl cursor-pointer hover:bg-neutral-800/50 transition-all">
+                            <input
+                                type="checkbox"
+                                name="allowMultiParticipants"
+                                value="true"
+                                defaultChecked={initialData ? initialData.allowMultiParticipants : false}
+                                className="h-5 w-5 rounded border-neutral-700 bg-neutral-900 text-yellow-500 focus:ring-yellow-500/20"
+                            />
+                            <div>
+                                <div className="font-bold text-neutral-100">Allow Multi-Participants</div>
+                                <div className="text-xs text-neutral-500">Users can join with aliases</div>
+                            </div>
+                        </label>
+
+                        {currentUserRole === 'ADMIN' && organizers && (
+                            <div className="flex flex-col gap-2 p-4 bg-neutral-800/30 border border-neutral-700/50 rounded-2xl">
+                                <label className="text-xs font-black uppercase tracking-widest text-neutral-500 flex items-center gap-2">
+                                    <Users className="h-4 w-4" />
+                                    Assign Organizer
+                                </label>
+                                <select
+                                    name="organizerId"
+                                    defaultValue={initialData?.organizerId || ""}
+                                    className="bg-neutral-900 border border-neutral-700 rounded-xl px-4 py-2 text-sm text-neutral-100 focus:outline-none focus:ring-2 focus:ring-yellow-500/20"
+                                    disabled={loading}
+                                >
+                                    <option value="">Select an Organizer</option>
+                                    {organizers.map(organizer => (
+                                        <option key={organizer.id} value={organizer.id}>
+                                            {organizer.name || organizer.email} ({organizer.email})
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
                     </div>
 
                     <div className="grid gap-2 max-w-sm">
@@ -353,7 +393,7 @@ export default function ChallengeForm({ initialData, mode }: ChallengeFormProps)
                     {loading ? "Saving..." : "Save"}
                 </button>
             </div>
-        </form>
+        </form >
     )
 }
 
@@ -476,36 +516,36 @@ const MetricEditor = memo(function MetricEditor({
                     </select>
                 </div>
             </div>
-        
 
-        {metric.inputType !== 'CHECKBOX' && (
-            <div className="grid sm:grid-cols-2 gap-8 bg-neutral-950/50 p-6 rounded-2xl border border-neutral-800/50">
-                <div className="grid gap-2">
-                    <label className="text-xs font-bold text-neutral-500 flex items-center gap-2">
-                        Cap for the Score Period
-                    </label>
-                    <input
-                        type="number"
-                        value={metric.maxPointsPerPeriod || ""}
-                        onChange={(e) => updateMetric({ maxPointsPerPeriod: e.target.value ? parseFloat(e.target.value) : null })}
-                        className="w-full bg-transparent border-b border-neutral-800 px-2 py-1 outline-none focus:border-yellow-500 transition-all text-neutral-200"
-                        placeholder="Unlimited"
-                    />
-                </div>
-                <div className="grid gap-2">
-                    <label className="text-xs font-bold text-neutral-500">Cap for the Total Duration</label>
-                    <input
-                        type="number"
-                        value={metric.maxPointsTotal || ""}
-                        onChange={(e) => updateMetric({ maxPointsTotal: e.target.value ? parseFloat(e.target.value) : null })}
-                        className="w-full bg-transparent border-b border-neutral-800 px-2 py-1 outline-none focus:border-yellow-500 transition-all text-neutral-200"
-                        placeholder="Unlimited"
-                    />
-                </div>
-            </div>
-        )}
 
-        {metric.inputType === 'CHECKBOX' ? (
+            {metric.inputType !== 'CHECKBOX' && (
+                <div className="grid sm:grid-cols-2 gap-8 bg-neutral-950/50 p-6 rounded-2xl border border-neutral-800/50">
+                    <div className="grid gap-2">
+                        <label className="text-xs font-bold text-neutral-500 flex items-center gap-2">
+                            Cap for the Score Period
+                        </label>
+                        <input
+                            type="number"
+                            value={metric.maxPointsPerPeriod || ""}
+                            onChange={(e) => updateMetric({ maxPointsPerPeriod: e.target.value ? parseFloat(e.target.value) : null })}
+                            className="w-full bg-transparent border-b border-neutral-800 px-2 py-1 outline-none focus:border-yellow-500 transition-all text-neutral-200"
+                            placeholder="Unlimited"
+                        />
+                    </div>
+                    <div className="grid gap-2">
+                        <label className="text-xs font-bold text-neutral-500">Cap for the Total Duration</label>
+                        <input
+                            type="number"
+                            value={metric.maxPointsTotal || ""}
+                            onChange={(e) => updateMetric({ maxPointsTotal: e.target.value ? parseFloat(e.target.value) : null })}
+                            className="w-full bg-transparent border-b border-neutral-800 px-2 py-1 outline-none focus:border-yellow-500 transition-all text-neutral-200"
+                            placeholder="Unlimited"
+                        />
+                    </div>
+                </div>
+            )}
+
+            {metric.inputType === 'CHECKBOX' ? (
                 <div className="space-y-4 pt-4 border-t border-neutral-800/50">
                     <h4 className="text-sm font-bold text-neutral-100">Scoring</h4>
                     <div className="grid gap-2">
@@ -529,100 +569,100 @@ const MetricEditor = memo(function MetricEditor({
                     </div>
                 </div>
             ) : (
-            <div className="space-y-4 pt-4 border-t border-neutral-800/50">
-                <div className="flex items-center justify-between">
-                    <h4 className="text-sm font-bold text-neutral-100">Scoring Rules</h4>
-                    <button
-                        type="button"
-                        onClick={() => updateMetric({
-                            scoringRules: [...metric.scoringRules, {
-                                comparisonType: "RANGE",
-                                minValue: 0,
-                                maxValue: null,
-                                points: 1,
-                                qualifierValue: "NONE"
-                            }]
-                        })}
-                        className="text-xs font-bold text-yellow-500 hover:text-yellow-400 transition-all px-3 py-1 rounded-lg border border-yellow-500/20 bg-yellow-500/5"
-                    >
-                        + Add Rule
-                    </button>
-                </div>
+                <div className="space-y-4 pt-4 border-t border-neutral-800/50">
+                    <div className="flex items-center justify-between">
+                        <h4 className="text-sm font-bold text-neutral-100">Scoring Rules</h4>
+                        <button
+                            type="button"
+                            onClick={() => updateMetric({
+                                scoringRules: [...metric.scoringRules, {
+                                    comparisonType: "RANGE",
+                                    minValue: 0,
+                                    maxValue: null,
+                                    points: 1,
+                                    qualifierValue: "NONE"
+                                }]
+                            })}
+                            className="text-xs font-bold text-yellow-500 hover:text-yellow-400 transition-all px-3 py-1 rounded-lg border border-yellow-500/20 bg-yellow-500/5"
+                        >
+                            + Add Rule
+                        </button>
+                    </div>
 
-                <div className="space-y-3">
-                    {metric.scoringRules.map((rule, rIdx) => (
-                        <div key={rIdx} className="grid sm:grid-cols-5 gap-3 items-end bg-neutral-800/30 p-4 rounded-xl border border-neutral-800/50">
-                            <div className="grid gap-1">
-                                <label className="text-[10px] font-bold text-neutral-500">Condition</label>
-                                <select
-                                    value={rule.comparisonType}
-                                    onChange={(e) => {
-                                        const newRules = [...metric.scoringRules];
-                                        newRules[rIdx].comparisonType = e.target.value as ComparisonType;
+                    <div className="space-y-3">
+                        {metric.scoringRules.map((rule, rIdx) => (
+                            <div key={rIdx} className="grid sm:grid-cols-5 gap-3 items-end bg-neutral-800/30 p-4 rounded-xl border border-neutral-800/50">
+                                <div className="grid gap-1">
+                                    <label className="text-[10px] font-bold text-neutral-500">Condition</label>
+                                    <select
+                                        value={rule.comparisonType}
+                                        onChange={(e) => {
+                                            const newRules = [...metric.scoringRules];
+                                            newRules[rIdx].comparisonType = e.target.value as ComparisonType;
+                                            updateMetric({ scoringRules: newRules });
+                                        }}
+                                        className="bg-neutral-800 border border-neutral-700 rounded-lg px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-yellow-500 text-neutral-200"
+                                    >
+                                        <option value="RANGE">Range (Min-Max)</option>
+                                        <option value="GREATER_THAN_EQUAL">Min Score (&gt;=)</option>
+                                        <option value="GREATER_THAN">Above (&gt;)</option>
+                                    </select>
+                                </div>
+                                <div className="grid gap-1">
+                                    <label className="text-[10px] font-bold text-neutral-500">Min</label>
+                                    <input
+                                        type="number"
+                                        value={rule.minValue || ""}
+                                        onChange={(e) => {
+                                            const newRules = [...metric.scoringRules];
+                                            newRules[rIdx].minValue = parseFloat(e.target.value);
+                                            updateMetric({ scoringRules: newRules });
+                                        }}
+                                        className="bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-1.5 text-xs outline-none focus:ring-1 focus:ring-yellow-500 text-neutral-200"
+                                    />
+                                </div>
+                                <div className="grid gap-1">
+                                    <label className="text-[10px] font-bold text-neutral-500">Max</label>
+                                    <input
+                                        type="number"
+                                        disabled={rule.comparisonType !== "RANGE"}
+                                        value={rule.maxValue || ""}
+                                        onChange={(e) => {
+                                            const newRules = [...metric.scoringRules];
+                                            newRules[rIdx].maxValue = parseFloat(e.target.value);
+                                            updateMetric({ scoringRules: newRules });
+                                        }}
+                                        className="bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-1.5 text-xs outline-none focus:ring-1 focus:ring-yellow-500 disabled:opacity-30 text-neutral-200"
+                                    />
+                                </div>
+                                <div className="grid gap-1">
+                                    <label className="text-[10px] font-bold text-neutral-500">Points</label>
+                                    <input
+                                        type="number"
+                                        value={rule.points}
+                                        onChange={(e) => {
+                                            const newRules = [...metric.scoringRules];
+                                            newRules[rIdx].points = parseFloat(e.target.value);
+                                            updateMetric({ scoringRules: newRules });
+                                        }}
+                                        className="bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-1.5 text-xs outline-none focus:ring-1 focus:ring-yellow-500 font-black text-yellow-500"
+                                    />
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        const newRules = metric.scoringRules.filter((_, i) => i !== rIdx);
                                         updateMetric({ scoringRules: newRules });
                                     }}
-                                    className="bg-neutral-800 border border-neutral-700 rounded-lg px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-yellow-500 text-neutral-200"
+                                    className="text-neutral-600 hover:text-red-500 p-2 ml-auto transition-colors"
                                 >
-                                    <option value="RANGE">Range (Min-Max)</option>
-                                    <option value="GREATER_THAN_EQUAL">Min Score (&gt;=)</option>
-                                    <option value="GREATER_THAN">Above (&gt;)</option>
-                                </select>
+                                    <Trash2 className="h-4 w-4" />
+                                </button>
                             </div>
-                            <div className="grid gap-1">
-                                <label className="text-[10px] font-bold text-neutral-500">Min</label>
-                                <input
-                                    type="number"
-                                    value={rule.minValue || ""}
-                                    onChange={(e) => {
-                                        const newRules = [...metric.scoringRules];
-                                        newRules[rIdx].minValue = parseFloat(e.target.value);
-                                        updateMetric({ scoringRules: newRules });
-                                    }}
-                                    className="bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-1.5 text-xs outline-none focus:ring-1 focus:ring-yellow-500 text-neutral-200"
-                                />
-                            </div>
-                            <div className="grid gap-1">
-                                <label className="text-[10px] font-bold text-neutral-500">Max</label>
-                                <input
-                                    type="number"
-                                    disabled={rule.comparisonType !== "RANGE"}
-                                    value={rule.maxValue || ""}
-                                    onChange={(e) => {
-                                        const newRules = [...metric.scoringRules];
-                                        newRules[rIdx].maxValue = parseFloat(e.target.value);
-                                        updateMetric({ scoringRules: newRules });
-                                    }}
-                                    className="bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-1.5 text-xs outline-none focus:ring-1 focus:ring-yellow-500 disabled:opacity-30 text-neutral-200"
-                                />
-                            </div>
-                            <div className="grid gap-1">
-                                <label className="text-[10px] font-bold text-neutral-500">Points</label>
-                                <input
-                                    type="number"
-                                    value={rule.points}
-                                    onChange={(e) => {
-                                        const newRules = [...metric.scoringRules];
-                                        newRules[rIdx].points = parseFloat(e.target.value);
-                                        updateMetric({ scoringRules: newRules });
-                                    }}
-                                    className="bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-1.5 text-xs outline-none focus:ring-1 focus:ring-yellow-500 font-black text-yellow-500"
-                                />
-                            </div>
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    const newRules = metric.scoringRules.filter((_, i) => i !== rIdx);
-                                    updateMetric({ scoringRules: newRules });
-                                }}
-                                className="text-neutral-600 hover:text-red-500 p-2 ml-auto transition-colors"
-                            >
-                                <Trash2 className="h-4 w-4" />
-                            </button>
-                        </div>
-                    ))}
+                        ))}
+                    </div>
                 </div>
-            </div>
-        )}
-    </div>
+            )}
+        </div>
     )
 })

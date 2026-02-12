@@ -32,8 +32,18 @@ export default async function EditChallengePage({ params }: { params: Promise<{ 
 
     if (session.user.role === "ORGANIZER" && challenge.organizerId !== session.user.id) {
         redirect("/dashboard")
-    } 
+    }
 
+    const organizers = await prisma.user.findMany({
+        where: {
+            role: { in: ['ADMIN', 'ORGANIZER'] }
+        },
+        select: {
+            id: true,
+            name: true,
+            email: true
+        }
+    })
 
     return (
         <div className="min-h-screen bg-neutral-950 text-neutral-100 p-8">
@@ -53,6 +63,8 @@ export default async function EditChallengePage({ params }: { params: Promise<{ 
 
                 <ChallengeForm
                     mode="EDIT"
+                    organizers={organizers}
+                    currentUserRole={session.user.role}
                     initialData={{
                         id: challenge.id,
                         name: challenge.name,
@@ -62,7 +74,9 @@ export default async function EditChallengePage({ params }: { params: Promise<{ 
                         isPublic: challenge.isPublic,
                         requiresApproval: challenge.requiresApproval,
                         showLeaderboard: challenge.showLeaderboard,
+                        allowMultiParticipants: challenge.allowMultiParticipants,
                         maxParticipants: challenge.maxParticipants,
+                        organizerId: challenge.organizerId,
                         metrics: challenge.metrics
                     }}
                 />

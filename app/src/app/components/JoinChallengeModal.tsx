@@ -8,10 +8,11 @@ import { useRouter } from "next/navigation"
 interface JoinChallengeModalProps {
     challengeId: string
     challengeName: string
+    allowMultiParticipants: boolean
 }
 
 
-export default function JoinChallengeModal({ challengeId, challengeName }: JoinChallengeModalProps) {
+export default function JoinChallengeModal({ challengeId, challengeName, allowMultiParticipants }: JoinChallengeModalProps) {
     const [isOpen, setIsOpen] = useState(false)
     const [names, setNames] = useState<string[]>([""])
     const [error, setError] = useState("")
@@ -123,15 +124,17 @@ export default function JoinChallengeModal({ challengeId, challengeName }: JoinC
                                     </div>
                                 ))}
 
-                                <button
-                                    type="button"
-                                    onClick={handleAddName}
-                                    className="w-full py-3 border-2 border-dashed border-neutral-700 rounded-xl text-neutral-500 hover:text-white hover:border-neutral-500 transition-all flex items-center justify-center gap-2 font-bold text-sm"
-                                    disabled={isPending}
-                                >
-                                    <Plus className="h-4 w-4" />
-                                    Add Another Participant
-                                </button>
+                                {allowMultiParticipants && (
+                                    <button
+                                        type="button"
+                                        onClick={handleAddName}
+                                        className="w-full py-3 border-2 border-dashed border-neutral-700 rounded-xl text-neutral-500 hover:text-white hover:border-neutral-500 transition-all flex items-center justify-center gap-2 font-bold text-sm"
+                                        disabled={isPending}
+                                    >
+                                        <Plus className="h-4 w-4" />
+                                        Add Another Participant
+                                    </button>
+                                )}
 
                                 {error && (
                                     <p className="text-red-500 text-sm font-medium animate-in fade-in slide-in-from-top-1">{error}</p>

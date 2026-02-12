@@ -31,13 +31,10 @@ export default async function ChallengeDetailPage({ params }: { params: Promise<
             },
             participants: {
                 include: {
-                    user: {
-                        include: {
-                            scoreSnapshots: {
-                                where: { challengeId },
-                                orderBy: { createdAt: 'desc' }
-                            }
-                        }
+                    user: true,
+                    scoreSnapshots: {
+                        where: { challengeId },
+                        orderBy: { createdAt: 'desc' }
                     }
                 }
             },
@@ -52,28 +49,28 @@ export default async function ChallengeDetailPage({ params }: { params: Promise<
     const isParticipant = !!challenge.participants.find(p => p.userId === session?.user?.id)
 
     // Calculate Leaderboard
-    // We need to aggregate total points per user across all metrics for this challenge
+    // We need to aggregate total points per participant across all metrics for this challenge
     const leaderboard = challenge.participants
         .map(p => {
-            // Get the latest snapshot for each metric for this user
-            const userMetricsScores = challenge.metrics.map(m => {
-                const latestSnapshot = p.user.scoreSnapshots.find(s => s.metricId === m.id)
+            // Get the latest snapshot for each metric for this participant
+            const participantMetricsScores = challenge.metrics.map(m => {
+                const latestSnapshot = p.scoreSnapshots.find(s => s.metricId === m.id)
                 return latestSnapshot?.totalPoints || 0
             })
 
-            const totalScore = userMetricsScores.reduce((a, b) => a + b, 0)
+            const totalScore = participantMetricsScores.reduce((a, b) => a + b, 0)
 
-            // Get display name from the most recent snapshot, fallback to user name
-            const latestSnapshot = p.user.scoreSnapshots[0]
-            const displayName = latestSnapshot?.displayName || p.displayName || p.user.name || "Anonymous"
+            // Get display name from the participant, fallback to most recent snapshot, then user name
+            const latestSnapshot = p.scoreSnapshots[0]
+            const displayName = p.displayName || latestSnapshot?.displayName || p.user.name || "Anonymous"
 
             return {
-                userId: p.userId,
+                participantId: p.id,
                 name: displayName,
                 totalScore,
                 metricScores: challenge.metrics.map((m, i) => ({
                     name: m.name,
-                    score: userMetricsScores[i]
+                    score: participantMetricsScores[i]
                 }))
             }
         })
@@ -174,7 +171,7 @@ export default async function ChallengeDetailPage({ params }: { params: Promise<
 
                         <div className="divide-y divide-neutral-800">
                             {leaderboard.map((user, index) => (
-                                <div key={user.userId} className={`px-8 py-6 flex items-center gap-6 transition-colors group hover:bg-neutral-900/40 ${index < 3 ? 'bg-yellow-500/5' : ''}`}>
+                                <div key={user.participantId} className={`px-8 py-6 flex items-center gap-6 transition-colors group hover:bg-neutral-900/40 ${index < 3 ? 'bg-yellow-500/5' : ''}`}>
                                     <div className="w-10 text-center font-black text-neutral-700 text-xl italic group-hover:text-yellow-500 transition-colors">
                                         #{index + 1}
                                     </div>

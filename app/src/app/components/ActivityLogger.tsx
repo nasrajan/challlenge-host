@@ -3,6 +3,7 @@
 import { getActivityLogsForDate, logActivities } from "@/app/actions/challenges"
 import { toLocalISOString } from "@/lib/dateUtils"
 import { Plus, X, Calendar, Activity, Info, CheckCircle2, ChevronDown } from "lucide-react"
+import { MetricInputType, ParticipantStatus } from "@prisma/client"
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 
@@ -10,13 +11,18 @@ interface Metric {
     id: string;
     name: string;
     unit: string;
-    inputType?: string;
+    inputType: MetricInputType;
     qualifiers: { id: string; value: string }[];
 }
 
 interface Participant {
     id: string;
+    userId: string;
+    challengeId: string;
     name: string;
+    displayName: string | null;
+    joinedAt: Date;
+    status: ParticipantStatus;
 }
 
 interface ActivityLoggerProps {

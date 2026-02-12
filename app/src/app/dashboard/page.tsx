@@ -209,7 +209,12 @@ export default async function DashboardPage() {
                                                         endDate={challenge.endDate}
                                                         participants={challenge.participants.map(p => ({
                                                             id: p.id,
-                                                            name: <p className="displayName"></p>
+                                                            userId: p.userId,
+                                                            challengeId: p.challengeId,
+                                                            name: p.name,
+                                                            displayName: p.displayName,
+                                                            joinedAt: p.joinedAt,
+                                                            status: p.status
                                                         }))}
                                                         metrics={challenge.metrics.map(m => ({
                                                             id: m.id,

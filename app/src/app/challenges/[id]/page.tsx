@@ -128,13 +128,19 @@ export default async function ChallengeDetailPage({ params }: { params: Promise<
                                         .filter(p => p.userId === session?.user?.id)
                                         .map(p => ({
                                             id: p.id,
-                                            name: p.name
+                                            userId: p.userId,
+                                            challengeId: p.challengeId,
+                                            name: p.name,
+                                            displayName: p.displayName,
+                                            joinedAt: p.joinedAt,
+                                            status: p.status
                                         }))}
                                     metrics={challenge.metrics.map(m => ({
                                         id: m.id,
                                         name: m.name,
                                         unit: m.unit,
-                                        qualifiers: m.qualifiers || []
+                                        qualifiers: m.qualifiers || [],
+                                        inputType: m.inputType
                                     }))}
                                 />
                             )}

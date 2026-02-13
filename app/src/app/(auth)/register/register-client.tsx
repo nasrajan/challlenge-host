@@ -1,7 +1,7 @@
 'use client'
 
 import { registerUser } from "@/app/actions/register"
-import { Trophy } from "lucide-react"
+import { Trophy, Eye,EyeOff  } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
@@ -25,6 +25,7 @@ function SubmitButton() {
 export default function RegisterClient() {
     const router = useRouter()
     const [error, setError] = useState<string | null>(null)
+    const [show, setShow] = useState(false);
 
     async function handleSubmit(formData: FormData) {
         const result = await registerUser(formData)
@@ -128,12 +129,19 @@ export default function RegisterClient() {
                                 <input
                                     id="password"
                                     name="password"
-                                    type="password"
+                                    type={show ? "text" : "password"}
                                     autoComplete="new-password"
                                     required
                                     minLength={6}
                                     className="block w-full rounded-md border-0 bg-neutral-800 px-4 py-1.5 text-neutral-100 shadow-sm ring-1 ring-inset ring-neutral-700 placeholder:text-neutral-500 focus:ring-2 focus:ring-inset focus:ring-yellow-500 sm:text-sm sm:leading-6"
                                 />
+                                <button
+                                        type="button"
+                                        className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                                        onClick={() => setShow(!show)}
+                                    >
+                                        {show ? <EyeOff className="h-5 w-5 text-neutral-400" /> : <Eye className="h-5 w-5 text-neutral-400" />}
+                                </button>
                             </div>
                         </div>
                     </div>

@@ -1,7 +1,7 @@
 'use client'
 
 import { signIn, getSession } from "next-auth/react"
-import { Trophy } from "lucide-react"
+import { Trophy, Eye, EyeOff } from "lucide-react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useState } from "react"
@@ -13,6 +13,7 @@ export default function LoginClient() {
     const [error, setError] = useState<string | null>(null)
     const [loading, setLoading] = useState(false)
     const [googleLoading, setGoogleLoading] = useState(false)
+    const [show, setShow] = useState(false);
 
     async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault()
@@ -138,14 +139,23 @@ export default function LoginClient() {
                                 Password
                             </label>
                             <div className="mt-2">
-                                <input
-                                    id="password"
-                                    name="password"
-                                    type="password"
-                                    autoComplete="current-password"
-                                    required
-                                    className="block w-full rounded-md border-0 bg-neutral-800 px-4 py-1.5 text-neutral-100 shadow-sm ring-1 ring-inset ring-neutral-700 placeholder:text-neutral-500 focus:ring-2 focus:ring-inset focus:ring-yellow-500 sm:text-sm sm:leading-6"
-                                />
+                                <div className="relative">
+                                    <input
+                                        id="password"
+                                        name="password"
+                                        type={show ? "text" : "password"}
+                                        autoComplete="current-password"
+                                        required
+                                        className="block w-full rounded-md border-0 bg-neutral-800 px-4 py-1.5 text-neutral-100 shadow-sm ring-1 ring-inset ring-neutral-700 placeholder:text-neutral-500 focus:ring-2 focus:ring-inset focus:ring-yellow-500 sm:text-sm sm:leading-6"
+                                    />
+                                    <button
+                                        type="button"
+                                        className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                                        onClick={() => setShow(!show)}
+                                    >
+                                        {show ? <EyeOff className="h-5 w-5 text-neutral-400" /> : <Eye className="h-5 w-5 text-neutral-400" />}
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>

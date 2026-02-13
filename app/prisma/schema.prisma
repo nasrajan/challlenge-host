@@ -74,11 +74,12 @@ model Challenge {
   timezone         String            @default("America/Los_Angeles")
   maxParticipants  Int?
   requiresApproval Boolean           @default(false)
+  allowMultiParticipants Boolean     @default(false)
   showLeaderboard  Boolean           @default(true)
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
   activityLogs     ActivityLog[]
-  organizer        User              @relation("OrganizedChallenges", fields: [organizerId], references: [id])
+  organizer        User              @relation("OrganizedChallenges", fields: [organizerId], references: [id], onDelete: Cascade)
   metrics          ChallengeMetric[]
   participants     Participant[]
 }
@@ -159,7 +160,7 @@ model ActivityLog {
   challenge     Challenge        @relation(fields: [challengeId], references: [id])
   metric        ChallengeMetric  @relation(fields: [metricId], references: [id])
   qualifier     MetricQualifier? @relation(fields: [qualifierId], references: [id])
-  user          User             @relation(fields: [userId], references: [id])
+  user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   participant   Participant?     @relation(fields: [participantId], references: [id], onDelete: Cascade)
 
   @@index([userId, challengeId, metricId])
@@ -181,7 +182,7 @@ model ScoreSnapshot {
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
   metric        ChallengeMetric @relation(fields: [metricId], references: [id])
-  user          User            @relation(fields: [userId], references: [id])
+  user          User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   participant   Participant?    @relation(fields: [participantId], references: [id], onDelete: Cascade)
 
   @@index([userId, challengeId, metricId])

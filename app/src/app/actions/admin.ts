@@ -48,3 +48,46 @@ export async function promoteToAdmin(email: string) {
     revalidatePath("/dashboard")
     return { success: true, user }
 }
+
+export async function deleteUser(userId: string) {
+    await ensureAdmin()
+
+    // Prisma schema has onDelete: Cascade for User relations (Participants, ActivityLogs, etc)
+    await prisma.user.delete({
+        where: { id: userId }
+    })
+
+    revalidatePath("/admin/users")
+    return { success: true, message: "User and all associated data deleted successfully." }
+}
+
+export async function getUserParticipations(userId: string) {
+    await ensureAdmin()
+
+    return await prisma.participant.findMany({
+        where: { userId },
+        include: {
+            challenge: {
+                select: {
+                    name: true,
+                    startDate: true,
+                    endDate: true,
+                    status: true
+                }
+            }
+        },
+        orderBy: { joinedAt: 'desc' }
+    })
+}
+
+export async function removeParticipant(participantId: string) {
+    await ensureAdmin()
+
+    const participant = await prisma.participant.delete({
+        where: { id: participantId }
+    })
+
+    revalidatePath("/admin/users")
+    revalidatePath(`/challenges/${participant.challengeId}`)
+    return { success: true, message: "Participant removed from the challenge." }
+}

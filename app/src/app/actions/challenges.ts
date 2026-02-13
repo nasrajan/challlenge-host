@@ -76,8 +76,10 @@ export async function createChallenge(formData: FormData) {
     const endDate = parseAsPST(formData.get("endDate") as string)
     const isPublic = formData.get("isPublic") === "true"
     const requiresApproval = formData.get("requiresApproval") === "true"
+    const allowMultiParticipants = formData.get("allowMultiParticipants") === "true"
     const showLeaderboard = formData.get("showLeaderboard") === "true"
     const maxParticipants = formData.get("maxParticipants") ? parseInt(formData.get("maxParticipants") as string) : null
+    const organizerId = formData.get("organizerId") as string | null
 
     const metricsDataJson = formData.get("metricsData") as string
     const metricsData = JSON.parse(metricsDataJson || "[]")
@@ -90,9 +92,10 @@ export async function createChallenge(formData: FormData) {
             endDate,
             isPublic,
             requiresApproval,
+            allowMultiParticipants,
             showLeaderboard,
             maxParticipants,
-            organizer: { connect: { id: session.user.id } },
+            organizer: { connect: { id: (session.user.role === 'ADMIN' && organizerId) ? organizerId : session.user.id } },
             status: "UPCOMING",
             metrics: {
                 create: metricsData.map((m: any) => ({
@@ -177,6 +180,32 @@ export async function logActivities(data: {
     }
 }
 
+export async function getActivityLogsForDate(challengeId: string, logDate: string, participantId?: string) {
+    const session = await getServerSession(authOptions)
+    if (!session) throw new Error("Unauthorized")
+
+    const dayStart = new Date(logDate)
+    const dayEnd = new Date(dayStart)
+    dayEnd.setDate(dayStart.getDate() + 1)
+
+    return prisma.activityLog.findMany({
+        where: {
+            userId: session.user.id,
+            challengeId,
+            ...(participantId ? { participantId } : {}),
+            date: {
+                gte: dayStart,
+                lt: dayEnd
+            }
+        },
+        select: {
+            metricId: true,
+            value: true,
+            notes: true
+        }
+    })
+}
+
 /*export async function logActivity(formData: FormData) {
     const session = await getServerSession(authOptions)
     if (!session) throw new Error("Unauthorized")
@@ -242,8 +271,10 @@ export async function updateChallenge(challengeId: string, formData: FormData) {
     const endDate = new Date(formData.get("endDate") as string)
     const isPublic = formData.get("isPublic") === "true"
     const requiresApproval = formData.get("requiresApproval") === "true"
+    const allowMultiParticipants = formData.get("allowMultiParticipants") === "true"
     const showLeaderboard = formData.get("showLeaderboard") === "true"
     const maxParticipants = formData.get("maxParticipants") ? parseInt(formData.get("maxParticipants") as string) : null
+    const organizerId = formData.get("organizerId") as string | null
 
     const metricsDataJson = formData.get("metricsData") as string
     const metricsData = JSON.parse(metricsDataJson || "[]")
@@ -267,8 +298,10 @@ export async function updateChallenge(challengeId: string, formData: FormData) {
                     endDate,
                     isPublic,
                     requiresApproval,
+                    allowMultiParticipants,
                     showLeaderboard,
-                    maxParticipants
+                    maxParticipants,
+                    ...(session.user.role === 'ADMIN' && organizerId ? { organizerId } : {})
                 }
             })
 

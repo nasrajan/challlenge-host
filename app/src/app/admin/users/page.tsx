@@ -1,9 +1,7 @@
 import { getAllUsers } from "@/app/actions/admin"
-import { UserRole } from "@prisma/client"
 import { Shield, User as UserIcon, ChevronLeft } from "lucide-react"
 import Link from "next/link"
-import UserRoleSelector from "../UserRoleSelector"
-import DateDisplay from "@/app/components/DateDisplay"
+import UserManagementTable from "@/app/components/Admin/UserManagementTable"
 
 export default async function AdminUsersPage() {
     const users = await getAllUsers()
@@ -32,42 +30,7 @@ export default async function AdminUsersPage() {
                         </span>
                     </div>
 
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse">
-                            <thead>
-                                <tr className="text-neutral-500 text-[10px] font-black  tracking-widest border-b border-neutral-800">
-                                    <th className="px-6 py-4">User</th>
-                                    <th className="px-6 py-4">Role</th>
-                                    <th className="px-6 py-4">Joined</th>
-                                    <th className="px-6 py-4">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-neutral-800 text-sm">
-                                {users.map((user) => (
-                                    <tr key={user.id} className="hover:bg-neutral-800/40 transition-colors group">
-                                        <td className="px-6 py-4">
-                                            <div className="font-bold text-neutral-200 group-hover:text-white transition-colors">{user.name}</div>
-                                            <div className="text-xs text-neutral-500">{user.email}</div>
-                                        </td>
-                                        <td className="px-6 py-4 font-mono">
-                                            <span className={`px-2 py-0.5 rounded text-[10px] font-black tracking-tighter ${user.role === 'ADMIN' ? 'bg-red-500/10 text-red-500 border border-red-500/20' :
-                                                user.role === 'ORGANIZER' ? 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20' :
-                                                    'bg-blue-500/10 text-blue-500 border border-blue-500/20'
-                                                }`}>
-                                                {user.role}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 text-neutral-500">
-                                            <DateDisplay date={user.createdAt} />
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <UserRoleSelector userId={user.id} currentRole={user.role} />
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                    <UserManagementTable users={users} />
                 </section>
             </div>
         </div>

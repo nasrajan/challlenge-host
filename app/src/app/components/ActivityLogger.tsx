@@ -1,22 +1,28 @@
 'use client'
 
-import { logActivities } from "@/app/actions/challenges"
+import { getActivityLogsForDate, logActivities } from "@/app/actions/challenges"
 import { toLocalISOString } from "@/lib/dateUtils"
-import { Plus, X, Calendar, Activity, Info, CheckCircle2 } from "lucide-react"
-import { useState } from "react"
+import { Plus, X, Calendar, Activity, Info, CheckCircle2, ChevronDown } from "lucide-react"
+import { MetricInputType, ParticipantStatus } from "@prisma/client"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 
 interface Metric {
     id: string;
     name: string;
     unit: string;
-    inputType?: string;
+    inputType: MetricInputType;
     qualifiers: { id: string; value: string }[];
 }
 
 interface Participant {
     id: string;
+    userId: string;
+    challengeId: string;
     name: string;
+    displayName: string | null;
+    joinedAt: Date;
+    status: ParticipantStatus;
 }
 
 interface ActivityLoggerProps {
@@ -39,9 +45,71 @@ export default function ActivityLogger({
     const [isOpen, setIsOpen] = useState(false)
     const [selectedParticipantId, setSelectedParticipantId] = useState(participants[0]?.id || "")
     const [loading, setLoading] = useState(false)
+    const [loadingLogs, setLoadingLogs] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [success, setSuccess] = useState(false)
+    const [selectedDate, setSelectedDate] = useState(() => getInitialLogDate(startDate, endDate))
+    const [metricValues, setMetricValues] = useState<Record<string, string>>({})
+    const [checkboxValues, setCheckboxValues] = useState<Record<string, boolean>>({})
+    const [textValues, setTextValues] = useState<Record<string, string>>({})
+    const [notesValue, setNotesValue] = useState("")
     const router = useRouter()
+
+    useEffect(() => {
+        if (isOpen) {
+            setSelectedDate(getInitialLogDate(startDate, endDate))
+        }
+    }, [isOpen, startDate, endDate])
+
+    useEffect(() => {
+        if (!isOpen) return
+        let active = true
+        setLoadingLogs(true)
+        setError(null)
+
+        getActivityLogsForDate(challengeId, selectedDate, selectedParticipantId)
+            .then((logs) => {
+                if (!active) return
+                const nextMetricValues: Record<string, string> = {}
+                const nextCheckboxValues: Record<string, boolean> = {}
+                const nextTextValues: Record<string, string> = {}
+                let nextNotes = ""
+
+                logs.forEach((log) => {
+                    const metric = metrics.find((m) => m.id === log.metricId)
+                    if (!metric) return
+
+                    if (metric.inputType === "CHECKBOX") {
+                        nextCheckboxValues[metric.id] = log.value > 0
+                    } else if (metric.inputType === "TEXT") {
+                        nextTextValues[metric.id] = log.notes || ""
+                    } else {
+                        nextMetricValues[metric.id] = String(log.value)
+                    }
+
+                    if (!nextNotes && log.notes && metric.inputType !== "TEXT") {
+                        nextNotes = log.notes
+                    }
+                })
+
+                setMetricValues(nextMetricValues)
+                setCheckboxValues(nextCheckboxValues)
+                setTextValues(nextTextValues)
+                setNotesValue(nextNotes)
+            })
+            .catch(() => {
+                if (active) {
+                    setError("Failed to load logs for this date.")
+                }
+            })
+            .finally(() => {
+                if (active) setLoadingLogs(false)
+            })
+
+        return () => {
+            active = false
+        }
+    }, [challengeId, selectedDate, isOpen, metrics, selectedParticipantId])
 
     async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault()
@@ -56,24 +124,23 @@ export default function ActivityLogger({
             return
         }
 
-        const formData = new FormData(form)
-        const entries = [];
-        const logDate = formData.get("logDate") as string;
-        const notes = formData.get("notes") as string;
+        const entries = []
+        const logDate = selectedDate
+        const notes = notesValue
 
         for (const metric of metrics) {
             if (metric.inputType === 'CHECKBOX') {
-                const checked = formData.get(`value_${metric.id}`) === '1';
+                const checked = checkboxValues[metric.id];
                 if (checked) {
                     entries.push({ metricId: metric.id, value: 1 });
                 }
             } else if (metric.inputType === 'TEXT') {
-                const text = formData.get(`value_${metric.id}`) as string;
+                const text = textValues[metric.id] || "";
                 if (text && text.trim() !== "") {
                     entries.push({ metricId: metric.id, value: 1, notes: text });
                 }
             } else {
-                const valueStr = formData.get(`value_${metric.id}`) as string;
+                const valueStr = metricValues[metric.id] || "";
                 if (valueStr && valueStr.trim() !== "") {
                     entries.push({
                         metricId: metric.id,
@@ -165,49 +232,48 @@ export default function ActivityLogger({
                     )}
 
                     <div className="grid gap-6">
-                        <div className="grid grid-cols-2 gap-4">
+                        {participants.length > 1 && (
                             <div className="grid gap-3">
-                                <label className="text-[10px] font-black text-neutral-500 ml-1 uppercase tracking-widest">Participant</label>
-                                <select
-                                    value={selectedParticipantId}
-                                    onChange={(e) => {
-                                        setSelectedParticipantId(e.target.value)
-                                        setSuccess(false) // Clear success message when switching participants
-                                    }}
-                                    className="w-full bg-neutral-800/50 border border-neutral-700/50 rounded-2xl px-4 py-4 outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500 transition-all font-bold appearance-none text-sm"
-                                    required
-                                >
-                                    {participants.map(p => (
-                                        <option key={p.id} value={p.id}>{p.name}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div className="grid gap-3">
-                                <label className="text-[10px] font-black text-neutral-500 ml-1 uppercase tracking-widest">Date</label>
-                                <div className="relative group">
-                                    <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-neutral-500 group-focus-within:text-yellow-500 transition-colors" />
-                                    <input
-                                        name="logDate"
-                                        type="date"
-                                        defaultValue={(() => {
-                                            const today = new Date();
-                                            const start = new Date(startDate);
-                                            const end = new Date(endDate);
-                                            if (today < start) return toLocalISOString(start);
-                                            if (today > end) return toLocalISOString(end);
-                                            return toLocalISOString(today);
-                                        })()}
-                                        min={toLocalISOString(startDate)}
-                                        max={toLocalISOString(endDate)}
-                                        required
-                                        className="w-full bg-neutral-800/50 border border-neutral-700/50 rounded-2xl pl-12 pr-6 py-4 outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500 transition-all font-bold text-sm"
-                                    />
+                                <label className="text-[10px] font-black text-neutral-500 ml-1">Participant</label>
+                                <div className="relative">
+                                    <select
+                                        value={selectedParticipantId}
+                                        onChange={(e) => setSelectedParticipantId(e.target.value)}
+                                        className="w-full bg-neutral-800/50 border border-neutral-700/50 rounded-2xl px-4 py-4 outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500 transition-all font-bold appearance-none text-neutral-200"
+                                    >
+                                        {participants.map(p => (
+                                            <option key={p.id} value={p.id}>{p.name}</option>
+                                        ))}
+                                    </select>
+                                    <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-neutral-500 pointer-events-none" />
                                 </div>
+                            </div>
+                        )}
+                        <div className="grid gap-3">
+                            <label className="text-[10px] font-black text-neutral-500 ml-1">Date</label>
+                            <div className="relative group">
+                                <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-neutral-500 group-focus-within:text-yellow-500 transition-colors" />
+                                <input
+                                    name="logDate"
+                                    type="date"
+                                    value={selectedDate}
+                                    onChange={(e) => setSelectedDate(e.target.value)}
+                                    min={toLocalISOString(startDate)}
+                                    max={(() => {
+                                        const today = new Date();
+                                        const end = new Date(endDate);
+                                        // Returns the earlier of the two dates
+                                        const maxDate = today < end ? today : end;
+                                        return toLocalISOString(maxDate);
+                                    })()}
+                                    required
+                                    className="w-full bg-neutral-800/50 border border-neutral-700/50 rounded-2xl pl-12 pr-6 py-4 outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500 transition-all font-bold"
+                                />
                             </div>
                         </div>
 
                         <div className="space-y-4">
-                            <label className="text-[10px] font-black text-neutral-500 ml-1 uppercase tracking-widest">Scores for the day</label>
+                            <label className="text-[10px] font-black text-neutral-500 ml-1">Daily Scores</label>
                             <div className="grid gap-4">
                                 {metrics.map(metric => (
                                     <div key={metric.id} className="bg-neutral-800/30 border border-neutral-800/50 rounded-2xl p-4 flex items-center gap-4 group hover:border-neutral-700 transition-all">
@@ -221,13 +287,27 @@ export default function ActivityLogger({
                                                     name={`value_${metric.id}`}
                                                     type="checkbox"
                                                     value="1"
+                                                    checked={!!checkboxValues[metric.id]}
+                                                    onChange={(e) => {
+                                                        setCheckboxValues((prev) => ({
+                                                            ...prev,
+                                                            [metric.id]: e.target.checked
+                                                        }))
+                                                    }}
                                                     className="h-8 w-8 rounded-lg border-neutral-700 bg-neutral-900 text-yellow-500 focus:ring-yellow-500/50 accent-yellow-500"
                                                 />
                                             ) : metric.inputType === 'TEXT' ? (
                                                 <input
                                                     name={`value_${metric.id}`}
                                                     type="text"
-                                                    placeholder="Note..."
+                                                    placeholder="Enter note..."
+                                                    value={textValues[metric.id] || ""}
+                                                    onChange={(e) => {
+                                                        setTextValues((prev) => ({
+                                                            ...prev,
+                                                            [metric.id]: e.target.value
+                                                        }))
+                                                    }}
                                                     className="w-full bg-neutral-900 border border-neutral-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500 transition-all text-sm font-medium text-neutral-200"
                                                 />
                                             ) : (
@@ -237,6 +317,13 @@ export default function ActivityLogger({
                                                     step="any"
                                                     min="0"
                                                     placeholder="0"
+                                                    value={metricValues[metric.id] || ""}
+                                                    onChange={(e) => {
+                                                        setMetricValues((prev) => ({
+                                                            ...prev,
+                                                            [metric.id]: e.target.value
+                                                        }))
+                                                    }}
                                                     className="w-full bg-neutral-900 border border-neutral-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500 transition-all text-right font-black"
                                                 />
                                             )}
@@ -247,38 +334,31 @@ export default function ActivityLogger({
                         </div>
 
                         <div className="grid gap-3">
-                            <label className="text-[10px] font-black text-neutral-500 ml-1 uppercase tracking-widest">Session Notes</label>
+                            <label className="text-[10px] font-black text-neutral-500 ml-1">Notes (Optional)</label>
                             <textarea
                                 name="notes"
-                                className="w-full bg-neutral-800/50 border border-neutral-700/50 rounded-2xl px-6 py-4 outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500 transition-all h-24 text-sm resize-none font-medium"
+                                value={notesValue}
+                                onChange={(e) => setNotesValue(e.target.value)}
+                                className="w-full bg-neutral-800/50 border border-neutral-700/50 rounded-2xl px-6 py-4 outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500 transition-all h-24 text-sm resize-none"
                                 placeholder="Add some context to your mission today..."
                             />
                         </div>
                     </div>
 
-                    <div className="flex flex-col gap-4 pt-4 border-t border-neutral-800">
-                        <div className="flex gap-4">
-                            <button
-                                type="submit"
-                                disabled={loading}
-                                className="flex-1 bg-neutral-800 text-white font-bold py-4 rounded-2xl border border-neutral-700 hover:bg-neutral-700 transition-all disabled:opacity-50 active:scale-95 flex items-center justify-center gap-2"
-                            >
-                                {loading ? "Saving..." : "Save Log"}
-                            </button>
-                            <button
-                                type="button"
-                                onClick={handleFinish}
-                                className="flex-1 bg-yellow-500 text-neutral-950 font-black py-4 rounded-2xl hover:bg-yellow-400 transition-all shadow-xl shadow-yellow-500/20 active:scale-95"
-                            >
-                                Finish & Submit
-                            </button>
-                        </div>
+                    <div className="flex gap-4 pt-4">
                         <button
                             type="button"
                             onClick={() => setIsOpen(false)}
-                            className="text-neutral-500 hover:text-white text-xs font-bold transition-colors"
+                            className="flex-1 px-8 py-4 rounded-2xl border border-neutral-800 font-bold hover:bg-neutral-800 transition-all active:scale-95"
                         >
-                            Discard & Cancel
+                            Cancel
+                        </button>
+                        <button
+                            disabled={loading || loadingLogs}
+                            type="submit"
+                            className="flex-[2] bg-yellow-500 text-neutral-950 font-black py-4 rounded-2xl hover:bg-yellow-400 transition-all shadow-xl shadow-yellow-500/20 disabled:opacity-50 active:scale-95"
+                        >
+                            {loading ? "Saving..." : "Save"}
                         </button>
                     </div>
                 </form>
@@ -300,4 +380,13 @@ export default function ActivityLogger({
             `}</style>
         </div>
     )
+}
+
+function getInitialLogDate(startDate: Date, endDate: Date) {
+    const today = new Date();
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    if (today < start) return toLocalISOString(start);
+    if (today > end) return toLocalISOString(end);
+    return toLocalISOString(today);
 }

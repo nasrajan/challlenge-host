@@ -89,12 +89,15 @@ export default async function ChallengeDetailPage({ params }: { params: Promise<
                     <Trophy className="h-6 w-6 text-yellow-500" />
                     <span className="text-xl font-bold">Challenge.io</span>
                 </Link>
-                <div className="container px-6 py-6 sm:py-6 relative">
+                <div className="container mx-auto px-6 py-6 sm:py-6 relative">
 
-                    <div className="max-w-4xl">
+                    <div className="max-w-6xl mx-auto">
 
-                        <h2 className="text-5xl font-black mb-6 tracking-tight">{challenge.name}</h2>
-                        <ExpandableDescription description={challenge.description || ""} />
+                        <h2 className="text-4xl font-black mb-6 tracking-tight">{challenge.name}</h2>
+                        <ExpandableDescription
+                            title={challenge.name}
+                            description={challenge.description || ""}
+                        />
 
                         <div className="flex flex-wrap gap-8 items-center">
                             <div className="flex items-center gap-3">

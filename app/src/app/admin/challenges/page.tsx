@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic'
 
-import { Trophy, BarChart, Trash2, Edit2, Calendar, ChevronLeft, Zap, Clock } from "lucide-react"
+import { Trophy, BarChart, Trash2, Edit2, Calendar, ChevronLeft, Zap, Clock, Eye } from "lucide-react"
 import { prisma } from "@/lib/prisma"
 import { revalidatePath } from "next/cache"
 import Link from "next/link"
@@ -46,56 +46,66 @@ export default async function AdminChallengesPage() {
             <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                     <thead>
-                        <tr className="text-neutral-500 text-[10px] font-black tracking-widest border-b border-neutral-800">
-                            <th className="px-6 py-4">Challenge Name</th>
-                            <th className="px-6 py-4">Tasks</th>
-                            <th className="px-6 py-4">Organizer</th>
-                            <th className="px-6 py-4">Window</th>
-                            <th className="px-6 py-4 text-right">Participants</th>
-                            <th className="px-6 py-4 text-center">Actions</th>
+                        <tr className="text-neutral-500 text-[10px] font-black tracking-widest border-b border-neutral-800 uppercase">
+                            <th className="px-4 py-4 sm:px-6">Challenge Name</th>
+                            <th className="px-4 py-4 sm:px-6">Tasks</th>
+                            <th className="px-4 py-4 sm:px-6">Organizer</th>
+                            <th className="px-4 py-4 sm:px-6">Window</th>
+                            <th className="px-4 py-4 sm:px-6 text-right">Joiners</th>
+                            <th className="px-4 py-4 sm:px-6 text-right">Actions</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-neutral-800 text-sm">
                         {challenges.map((challenge: any) => (
                             <tr key={challenge.id} className="hover:bg-neutral-800/40 transition-colors group">
-                                <td className="px-6 py-4 max-w-xs">
+                                <td className="px-4 py-4 sm:px-6 max-w-xs">
                                     <div className="font-bold text-neutral-200 group-hover:text-white transition-colors truncate">
                                         {challenge.name}
                                     </div>
-                                    <div className="text-[10px] text-neutral-600 truncate font-mono tracking-tighter">
-                                        ID: {challenge.id}
+                                    <div className="text-[10px] text-neutral-600 truncate font-mono tracking-tighter uppercase opacity-50">
+                                        {challenge.id.slice(0, 8)}...
                                     </div>
                                 </td>
-                                <td className="px-6 py-4">
+                                <td className="px-4 py-4 sm:px-6">
                                     <div className="flex flex-wrap gap-1">
                                         {challenge.metrics.map((m: any) => (
-                                            <span key={m.id} className="bg-neutral-950 text-neutral-500 text-[9px] font-black px-1.5 py-0.5 rounded border border-neutral-800 ">
+                                            <span key={m.id} className="bg-neutral-950 text-neutral-500 text-[9px] font-black px-1.5 py-0.5 rounded border border-neutral-800 uppercase">
                                                 {m.name}
                                             </span>
                                         ))}
                                     </div>
                                 </td>
-                                <td className="px-6 py-4">
+                                <td className="px-4 py-4 sm:px-6">
                                     <div className="font-bold text-neutral-200">{challenge.organizer?.name || "Unknown"}</div>
-                                    <div className="text-[10px] text-neutral-600">{challenge.organizer?.email || "-"}</div>
+                                    <div className="text-[10px] text-neutral-600 truncate max-w-[100px]">{challenge.organizer?.email || "-"}</div>
                                 </td>
-                                <td className="px-6 py-4 text-neutral-500 font-mono text-xs">
+                                <td className="px-4 py-4 sm:px-6 text-neutral-500 font-mono text-[10px] tracking-tighter">
                                     <div className="flex flex-col">
-                                        <span>S: <DateDisplay date={challenge.startDate} /></span>
-                                        <span className="text-neutral-700">E: <DateDisplay date={challenge.endDate} /></span>
+                                        <span className="flex items-center gap-1"><span className="text-neutral-700 font-black">START:</span> <DateDisplay date={challenge.startDate} /></span>
+                                        <span className="flex items-center gap-1"><span className="text-neutral-700 font-black">END:</span> <DateDisplay date={challenge.endDate} /></span>
                                     </div>
                                 </td>
-                                <td className="px-6 py-4 text-right font-black text-neutral-400">
+                                <td className="px-4 py-4 sm:px-6 text-right font-black text-neutral-400">
                                     {challenge._count.participants}
                                 </td>
-                                <td className="px-6 py-4">
-                                    <div className="flex items-center justify-center gap-2">
+                                <td className="px-4 py-4 sm:px-6">
+                                    <div className="flex items-center justify-end gap-1 sm:gap-2">
+                                        <Link
+                                            href={`/challenges/${challenge.id}`}
+                                            className="p-1.5 sm:p-2 bg-neutral-800 border border-neutral-700 text-neutral-400 hover:text-yellow-500 hover:border-yellow-500/30 rounded-lg sm:rounded-xl transition-all flex items-center gap-1 sm:gap-2 text-[10px] sm:text-xs font-bold"
+                                            title="View Leaderboard"
+                                        >
+                                            <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                                            <span className="hidden xl:inline">View</span>
+                                        </Link>
                                         {(challenge.status === 'UPCOMING' || challenge.status === 'ACTIVE') && (
                                             <Link
                                                 href={`/admin/challenges/${challenge.id}/edit`}
-                                                className="text-neutral-500 hover:text-blue-400 transition-colors p-2 bg-neutral-950 rounded-lg border border-neutral-800"
+                                                className="p-1.5 sm:p-2 bg-neutral-800 border border-neutral-700 text-neutral-400 hover:text-blue-400 hover:border-blue-500/30 rounded-lg sm:rounded-xl transition-all flex items-center gap-1 sm:gap-2 text-[10px] sm:text-xs font-bold"
+                                                title="Edit Challenge"
                                             >
-                                                <Edit2 className="h-4 w-4" />
+                                                <Edit2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                                                <span className="hidden xl:inline">Edit</span>
                                             </Link>
                                         )}
                                         <form action={async () => {
@@ -103,8 +113,8 @@ export default async function AdminChallengesPage() {
                                             await prisma.challenge.delete({ where: { id: challenge.id } })
                                             revalidatePath('/admin/challenges')
                                         }}>
-                                            <button className="text-neutral-500 hover:text-red-500 transition-colors p-2 bg-neutral-950 rounded-lg border border-neutral-800">
-                                                <Trash2 className="h-4 w-4" />
+                                            <button className="p-1.5 sm:p-2 bg-neutral-800 border border-neutral-700 text-neutral-400 hover:text-red-500 hover:border-red-500/30 rounded-lg sm:rounded-xl transition-all">
+                                                <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                                             </button>
                                         </form>
                                     </div>
@@ -170,7 +180,7 @@ export default async function AdminChallengesPage() {
                                     {pendingParticipants.map((participant) => (
                                         <tr key={participant.id} className="hover:bg-neutral-800/40 transition-colors group">
                                             <td className="px-6 py-4">
-                                                <div className="font-bold text-neutral-200 group-hover:text-white transition-colors">{participant.user.name}</div>
+                                                <div className="font-bold text-neutral-200 group-hover:text-white transition-colors">{participant.name || participant.user.name}</div>
                                                 <div className="text-xs text-neutral-500">{participant.user.email}</div>
                                             </td>
                                             <td className="px-6 py-4 text-neutral-300 font-semibold">

@@ -20,9 +20,21 @@ import DateDisplay from "@/app/components/DateDisplay"
 
 import ExpandableDescription from "@/app/components/ExpandableDescription"
 
-export default async function ChallengeDetailPage({ params }: { params: Promise<{ id: string }> }) {
+import { getChallengeLeaderboard } from "@/lib/scoring"
+import WeekSelector from "@/app/components/WeekSelector"
+import { addDays, format, startOfDay, endOfDay } from "date-fns"
+
+export default async function ChallengeDetailPage({
+    params,
+    searchParams: searchParamsPromise
+}: {
+    params: Promise<{ id: string }>,
+    searchParams: Promise<{ week?: string }>
+}) {
     const session = await getServerSession(authOptions)
     const { id: challengeId } = await params
+    const searchParams = await searchParamsPromise
+    const selectedWeek = searchParams.week ? parseInt(searchParams.week) : null
 
     const challenge = await prisma.challenge.findUnique({
         where: { id: challengeId },
@@ -35,11 +47,7 @@ export default async function ChallengeDetailPage({ params }: { params: Promise<
             },
             participants: {
                 include: {
-                    user: true,
-                    scoreSnapshots: {
-                        where: { challengeId },
-                        orderBy: { createdAt: 'desc' }
-                    }
+                    user: true
                 }
             },
             _count: {
@@ -52,33 +60,30 @@ export default async function ChallengeDetailPage({ params }: { params: Promise<
 
     const isParticipant = !!challenge.participants.find(p => p.userId === session?.user?.id)
 
-    // Calculate Leaderboard
-    // We need to aggregate total points per participant across all metrics for this challenge
-    const leaderboard = challenge.participants
-        .map(p => {
-            // Get the latest snapshot for each metric for this participant
-            const participantMetricsScores = challenge.metrics.map(m => {
-                const latestSnapshot = p.scoreSnapshots.find(s => s.metricId === m.id)
-                return latestSnapshot?.totalPoints || 0
-            })
+    // Calculate Weeks
+    const weeks = []
+    let currentStart = startOfDay(challenge.startDate)
+    let i = 1
+    while (currentStart < challenge.endDate) {
+        let currentEnd = endOfDay(addDays(currentStart, 6))
+        if (currentEnd > endOfDay(challenge.endDate)) currentEnd = endOfDay(challenge.endDate)
 
-            const totalScore = participantMetricsScores.reduce((a, b) => a + b, 0)
-
-            // Get display name from the participant, fallback to most recent snapshot, then user name
-            const latestSnapshot = p.scoreSnapshots[0]
-            const displayName = p.displayName || latestSnapshot?.displayName || p.user.name || "Anonymous"
-
-            return {
-                participantId: p.id,
-                name: displayName,
-                totalScore,
-                metricScores: challenge.metrics.map((m, i) => ({
-                    name: m.name,
-                    score: participantMetricsScores[i]
-                }))
-            }
+        weeks.push({
+            number: i++,
+            start: currentStart,
+            end: currentEnd,
+            label: `${format(currentStart, 'MMM d')} - ${format(currentEnd, 'MMM d')}`
         })
-        .sort((a, b) => b.totalScore - a.totalScore)
+        currentStart = addDays(currentStart, 7)
+    }
+
+    // Get Leaderboard Data
+    const weekData = selectedWeek ? weeks.find(w => w.number === selectedWeek) : null
+    const leaderboard = await getChallengeLeaderboard(
+        challengeId,
+        weekData?.start,
+        weekData?.end
+    )
 
     return (
         <div className="min-h-screen bg-neutral-950 text-neutral-100">
@@ -89,12 +94,15 @@ export default async function ChallengeDetailPage({ params }: { params: Promise<
                     <Trophy className="h-6 w-6 text-yellow-500" />
                     <span className="text-xl font-bold">Challenge.io</span>
                 </Link>
-                <div className="container px-6 py-6 sm:py-6 relative">
+                <div className="container mx-auto px-6 py-6 sm:py-6 relative">
 
-                    <div className="max-w-4xl">
+                    <div className="max-w-6xl mx-auto">
 
-                        <h2 className="text-5xl font-black mb-6 tracking-tight">{challenge.name}</h2>
-                        <ExpandableDescription description={challenge.description || ""} />
+                        <h2 className="text-4xl font-black mb-6 tracking-tight">{challenge.name}</h2>
+                        <ExpandableDescription
+                            title={challenge.name}
+                            description={challenge.description || ""}
+                        />
 
                         <div className="flex flex-wrap gap-8 items-center">
                             <div className="flex items-center gap-3">
@@ -194,18 +202,19 @@ export default async function ChallengeDetailPage({ params }: { params: Promise<
                 {/* Right Column: Leaderboard */}
                 {challenge.showLeaderboard && (<div className="lg:col-span-2 space-y-8">
                     <section className="bg-neutral-900/40 border border-neutral-800 rounded-3xl overflow-hidden">
-                        <div className="px-8 py-6 border-b border-neutral-800 flex items-center justify-between bg-neutral-900/60">
+                        <div className="px-6 py-6 border-b border-neutral-800 flex items-center justify-between bg-neutral-900/60">
                             <h2 className="text-xl font-bold flex items-center gap-3">
                                 <BarChart className="h-6 w-6 text-yellow-500" />
                                 Leaderboard
                             </h2>
+                            <WeekSelector weeks={weeks} />
                         </div>
 
                         <div className="divide-y divide-neutral-800">
                             {leaderboard.map((user, index) => (
                                 <div
                                     key={user.name}
-                                    className={`px-4 sm:px-8 py-4 sm:py-6 flex items-center gap-3 sm:gap-6 transition-colors group hover:bg-neutral-900/40 ${index < 3 ? "bg-yellow-500/5" : ""
+                                    className={`pr-4 sm:px-8 py-4 sm:py-6 flex items-center gap-3 sm:gap-6 transition-colors group hover:bg-neutral-900/40 ${index < 3 ? "bg-yellow-500/5" : ""
                                         }`}
                                 >
                                     <div className="w-8 sm:w-10 text-center font-black text-neutral-700 text-lg sm:text-xl italic group-hover:text-yellow-500 transition-colors">

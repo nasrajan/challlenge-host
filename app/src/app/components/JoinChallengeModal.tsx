@@ -72,7 +72,7 @@ export default function JoinChallengeModal({ challengeId, challengeName, allowMu
                 onClick={() => setIsOpen(true)}
                 className="bg-yellow-500 text-neutral-950 px-8 py-3 rounded-2xl font-black hover:bg-yellow-400 transition-all shadow-xl shadow-yellow-500/20 active:scale-95"
             >
-                Join the Challenge
+                Join Challenge
             </button>
 
             {isOpen && (

@@ -59,11 +59,28 @@ export async function calculateParticipantScoreForMetric(
     const logs = await prisma.activityLog.findMany({
         where: {
             participantId,
-            metricId
+            metricId,
+            date: { lte: asOfDate }
         },
         orderBy: { date: 'asc' }
     });
 
+    const { totalPoints, snapshots } = calculateScoreFromLogs(logs, metric, participant);
+
+    // Update ScoreSnapshots in DB
+    // First clear existing snapshots for this participant/metric
+    await prisma.scoreSnapshot.deleteMany({
+        where: { participantId, metricId }
+    });
+
+    await prisma.scoreSnapshot.createMany({
+        data: snapshots
+    });
+
+    return totalPoints;
+}
+
+export function calculateScoreFromLogs(logs: ActivityLog[], metric: any, participant: any) {
     // Group logs by scoring period
     const periodsLogs: Map<string, ActivityLog[]> = new Map();
     logs.forEach(log => {
@@ -111,23 +128,23 @@ export async function calculateParticipantScoreForMetric(
 
         // Apply rules for each qualifier group
         qualifierGroups.forEach((aggregatedValue, qualifierId) => {
-            const relevantRules = metric.scoringRules.filter(rule => rule.qualifierId === qualifierId);
+            const relevantRules = metric.scoringRules.filter((rule: any) => rule.qualifierId === qualifierId);
 
             const rulesToEvaluate = relevantRules.length > 0
                 ? relevantRules
-                : metric.scoringRules.filter(rule => rule.qualifierId === null);
+                : metric.scoringRules.filter((rule: any) => rule.qualifierId === null);
 
-            rulesToEvaluate.forEach(rule => {
+            rulesToEvaluate.forEach((rule: any) => {
                 let matches = false;
                 switch (rule.comparisonType) {
                     case "RANGE":
-                        matches = aggregatedValue >= (rule.minValue || 0) && aggregatedValue <= (rule.maxValue || Infinity);
+                        matches = aggregatedValue >= (rule.minValue ?? 0) && aggregatedValue <= (rule.maxValue ?? Infinity);
                         break;
                     case "GREATER_THAN":
-                        matches = aggregatedValue > (rule.minValue || 0);
+                        matches = aggregatedValue > (rule.minValue ?? 0);
                         break;
                     case "GREATER_THAN_EQUAL":
-                        matches = aggregatedValue >= (rule.minValue || 0);
+                        matches = aggregatedValue >= (rule.minValue ?? 0);
                         break;
                 }
 
@@ -152,7 +169,7 @@ export async function calculateParticipantScoreForMetric(
 
         snapshots.push({
             userId: participant.userId,
-            participantId,
+            participantId: participant.id,
             challengeId: metric.challengeId,
             metricId: metric.id,
             displayName: participant.displayName || participant.name,
@@ -164,17 +181,7 @@ export async function calculateParticipantScoreForMetric(
         });
     }
 
-    // Update ScoreSnapshots in DB
-    // First clear existing snapshots for this participant/metric
-    await prisma.scoreSnapshot.deleteMany({
-        where: { participantId, metricId }
-    });
-
-    await prisma.scoreSnapshot.createMany({
-        data: snapshots
-    });
-
-    return totalCumulativePoints;
+    return { totalPoints: totalCumulativePoints, snapshots };
 }
 
 export async function recalculateParticipantChallengeScore(participantId: string, challengeId: string) {
@@ -189,4 +196,57 @@ export async function recalculateParticipantChallengeScore(participantId: string
     }
 
     return grandTotal;
+}
+
+export async function getChallengeLeaderboard(challengeId: string, startDate?: Date, endDate?: Date) {
+    const challenge = await prisma.challenge.findUnique({
+        where: { id: challengeId },
+        include: {
+            metrics: {
+                include: {
+                    scoringRules: true,
+                    qualifiers: true
+                }
+            },
+            participants: {
+                include: {
+                    user: true,
+                    activityLogs: {
+                        where: {
+                            ...(startDate && endDate ? {
+                                date: {
+                                    gte: startDate,
+                                    lte: endDate
+                                }
+                            } : {})
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    if (!challenge) return [];
+
+    const leaderboard = challenge.participants.map(p => {
+        let totalScore = 0;
+        const metricScores = challenge.metrics.map(m => {
+            const logs = p.activityLogs.filter(l => l.metricId === m.id);
+            const { totalPoints } = calculateScoreFromLogs(logs, m, p);
+            totalScore += totalPoints;
+            return {
+                name: m.name,
+                score: totalPoints
+            };
+        });
+
+        return {
+            participantId: p.id,
+            name: p.displayName || p.name || p.user.name || "Anonymous",
+            totalScore,
+            metricScores
+        };
+    });
+
+    return leaderboard.sort((a, b) => b.totalScore - a.totalScore);
 }

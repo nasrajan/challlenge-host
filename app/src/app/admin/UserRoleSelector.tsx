@@ -14,7 +14,10 @@ export default function UserRoleSelector({ userId, currentRole }: UserRoleSelect
             <select
                 name="role"
                 defaultValue={currentRole}
-                className="bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs text-neutral-100 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                className={`bg-neutral-800 border rounded px-1.5 py-0.5 text-[10px] font-black tracking-tight focus:outline-none transition-all cursor-pointer ${currentRole === 'ADMIN' ? 'border-red-500/50 text-red-400 ring-red-500/20' :
+                        currentRole === 'ORGANIZER' ? 'border-yellow-500/50 text-yellow-400 ring-yellow-500/20' :
+                            'border-blue-500/50 text-blue-400 ring-blue-500/20'
+                    }`}
                 onChange={async (e) => {
                     const newRole = e.target.value as UserRole;
                     await updateUserRole(userId, newRole);

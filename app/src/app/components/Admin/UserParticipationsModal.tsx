@@ -10,11 +10,12 @@ import ConfirmationModal from "@/app/components/ConfirmationModal"
 interface UserParticipationsModalProps {
     userId: string
     userName: string
+    joinedAt: Date
     isOpen: boolean
     onClose: () => void
 }
 
-export default function UserParticipationsModal({ userId, userName, isOpen, onClose }: UserParticipationsModalProps) {
+export default function UserParticipationsModal({ userId, userName, joinedAt, isOpen, onClose }: UserParticipationsModalProps) {
     const [participations, setParticipations] = useState<any[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
@@ -74,7 +75,7 @@ export default function UserParticipationsModal({ userId, userName, isOpen, onCl
                 <div className="flex items-center justify-between mb-8">
                     <div>
                         <h2 className="text-2xl font-bold text-white">Challenge Participations</h2>
-                        <p className="text-neutral-500 font-medium">Joined challenges for <span className="text-blue-400 font-bold">{userName}</span></p>
+                        <p className="text-neutral-500 font-medium">Joined: <span className="text-neutral-300"><DateDisplay date={joinedAt} /></span>  • <span className="text-blue-400 font-bold">{userName}</span></p>
                     </div>
                     <button
                         onClick={onClose}

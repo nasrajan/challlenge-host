@@ -6,6 +6,8 @@ import { Trophy, Plus, Settings, Users, LogOut, ChevronRight, Activity, UserChec
 import { prisma } from "@/lib/prisma"
 import ActivityLogger from "@/app/components/ActivityLogger"
 import { approveParticipant, syncChallengeStatuses } from "@/app/actions/challenges"
+import { addDays, startOfDay, endOfDay } from "date-fns"
+import { calculateScoreFromLogs } from "@/lib/scoring"
 
 export default async function DashboardPage() {
     const session = await getServerSession(authOptions)
@@ -48,6 +50,10 @@ export default async function DashboardPage() {
             metrics: {
                 include: {
                     qualifiers: true,
+                    scoringRules: true,
+                    activityLogs: {
+                        where: { userId: session.user.id }
+                    },
                     scoreSnapshots: {
                         where: { userId: session.user.id },
                         orderBy: { periodStart: 'desc' },
@@ -129,7 +135,7 @@ export default async function DashboardPage() {
                                     {pendingApprovals.map((participant) => (
                                         <div key={participant.id} className="px-6 py-4 flex items-center gap-4">
                                             <div className="flex-1 min-w-0">
-                                                <div className="font-bold text-neutral-200 truncate">{participant.user.name}</div>
+                                                <div className="font-bold text-neutral-200 truncate">{participant.name || participant.user.name}</div>
                                                 <div className="text-xs text-neutral-500 truncate">{participant.user.email}</div>
                                                 <div className="text-xs text-neutral-600 mt-1">
                                                     {participant.challenge.name}
@@ -177,22 +183,47 @@ export default async function DashboardPage() {
                                                     </div>
                                                 </div>
 
-                                                <div className="flex flex-wrap gap-4">
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
                                                     {challenge.metrics.map(m => {
                                                         const lastSnapshot = m.scoreSnapshots[0];
-                                                        const now = new Date();
-                                                        const isCurrentPeriod = lastSnapshot &&
-                                                            now >= lastSnapshot.periodStart &&
-                                                            now <= lastSnapshot.periodEnd;
 
-                                                        const displayScore = isCurrentPeriod ? (lastSnapshot.cappedPoints || 0) : 0;
+                                                        // Calculate Current Challenge Week Range
+                                                        const today = new Date();
+                                                        const diffDays = Math.floor((today.getTime() - challenge.startDate.getTime()) / (1000 * 60 * 60 * 24));
+                                                        const weekNumber = Math.max(0, Math.floor(diffDays / 7));
+                                                        const weekStart = startOfDay(addDays(challenge.startDate, weekNumber * 7));
+                                                        const weekEnd = endOfDay(addDays(weekStart, 6));
+
+                                                        const weekLogs = m.activityLogs.filter(l =>
+                                                            l.date >= weekStart && l.date <= weekEnd
+                                                        );
+
+                                                        const participant = challenge.participants[0];
+                                                        const { totalPoints: weekScore } = calculateScoreFromLogs(weekLogs, m, participant);
+                                                        const totalScore = lastSnapshot?.totalPoints || 0;
 
                                                         return (
-                                                            <div key={m.id} className="bg-neutral-950/50 rounded-2xl p-4 border border-neutral-800/50 min-w-[140px]">
-                                                                <div className="text-[10px] font-bold text-neutral-500 mb-1">{m.name}</div>
-                                                                <div className="text-lg font-black text-white">
-                                                                    {displayScore}
-                                                                    <span className="text-xs text-neutral-500 font-medium ml-1">pts</span>
+                                                            <div key={m.id} className="bg-neutral-950/40 rounded-2xl p-3 border border-neutral-800 hover:border-neutral-700/50 transition-all flex flex-col justify-between gap-3">
+                                                                <div className="text-[10px] sm:text-[11px] font-black text-neutral-500 uppercase tracking-widest truncate" title={m.name}>{m.name}</div>
+
+                                                                <div className="flex items-center justify-between gap-2 border-t border-neutral-800/50 pt-3">
+                                                                    <div className="flex flex-col">
+                                                                        <span className="text-[8px] text-neutral-600 font-black uppercase tracking-tighter">Week</span>
+                                                                        <span className="text-lg font-black text-neutral-100 tabular-nums">
+                                                                            {weekScore}
+                                                                            <span className="text-[10px] text-neutral-600 font-bold ml-0.5">pts</span>
+                                                                        </span>
+                                                                    </div>
+
+                                                                    <div className="w-px h-6 bg-neutral-800/80" />
+
+                                                                    <div className="flex flex-col text-right">
+                                                                        <span className="text-[8px] text-neutral-600 font-black uppercase tracking-tighter">Total</span>
+                                                                        <span className="text-lg font-black text-yellow-500 tabular-nums">
+                                                                            {totalScore}
+                                                                            <span className="text-[10px] text-yellow-600/50 font-bold ml-0.5">pts</span>
+                                                                        </span>
+                                                                    </div>
                                                                 </div>
                                                             </div>
                                                         )
@@ -270,8 +301,8 @@ export default async function DashboardPage() {
                         {/* Stats Summary could go here */}
                     </div>
                 </div>
-            </main>
-        </div>
+            </main >
+        </div >
     )
 }
 

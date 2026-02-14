@@ -58,53 +58,51 @@ export default function UserManagementTable({ users: initialUsers }: UserManagem
             <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                     <thead>
-                        <tr className="text-neutral-500 text-[10px] font-black tracking-widest border-b border-neutral-800">
-                            <th className="px-6 py-4 uppercase">User</th>
-                            <th className="px-6 py-4 uppercase">Role</th>
-                            <th className="px-6 py-4 uppercase">Joined</th>
-                            <th className="px-6 py-4 uppercase">Actions</th>
+                        <tr className="text-neutral-500 text-[10px] font-black tracking-widest border-b border-neutral-800 uppercase">
+                            <th className="px-4 py-4 sm:px-6">User</th>
+                            <th className="px-4 py-4 sm:px-6">Role</th>
+                            <th className="px-6 py-4 hidden md:table-cell">Joined</th>
+                            <th className="px-4 py-4 sm:px-6 text-right">Actions</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-neutral-800 text-sm">
                         {users.map((user) => (
                             <tr key={user.id} className="hover:bg-neutral-800/40 transition-colors group">
-                                <td className="px-6 py-4">
-                                    <div className="font-bold text-neutral-200 group-hover:text-white transition-colors">
-                                        {user.name || "Unknown User"}
+                                <td className="px-4 py-4 sm:px-6">
+                                    <div className="flex flex-col">
+                                        <div className="font-bold text-neutral-200 group-hover:text-white transition-colors truncate max-w-[120px] sm:max-w-[200px]">
+                                            {user.name || "Unknown User"}
+                                        </div>
+                                        <div className="text-[10px] sm:text-xs text-neutral-500 truncate max-w-[120px] sm:max-w-none">
+                                            {user.email}
+                                        </div>
                                     </div>
-                                    <div className="text-xs text-neutral-500">{user.email}</div>
                                 </td>
-                                <td className="px-6 py-4 font-mono">
-                                    <div className="flex items-center gap-3">
-                                        <span className={`px-2 py-0.5 rounded text-[10px] font-black tracking-tighter ${user.role === 'ADMIN' ? 'bg-red-500/10 text-red-500 border border-red-500/20' :
-                                            user.role === 'ORGANIZER' ? 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20' :
-                                                'bg-blue-500/10 text-blue-500 border border-blue-500/20'
-                                            }`}>
-                                            {user.role}
-                                        </span>
+                                <td className="px-4 py-4 sm:px-6">
+                                    <div className="relative inline-flex items-center">
                                         <UserRoleSelector userId={user.id} currentRole={user.role as any} />
                                     </div>
                                 </td>
-                                <td className="px-6 py-4 text-neutral-500">
+                                <td className="px-6 py-4 text-neutral-500 hidden md:table-cell">
                                     <DateDisplay date={user.createdAt} />
                                 </td>
-                                <td className="px-6 py-4">
-                                    <div className="flex items-center gap-2">
+                                <td className="px-4 py-4 sm:px-6">
+                                    <div className="flex items-center justify-end gap-1 sm:gap-2">
                                         <button
                                             onClick={() => setSelectedUser({ id: user.id, name: user.name || "User" })}
-                                            className="p-2 bg-neutral-800 border border-neutral-700 text-neutral-400 hover:text-blue-400 hover:border-blue-500/30 rounded-xl transition-all flex items-center gap-2 text-xs font-bold"
+                                            className="p-1.5 sm:p-2 bg-neutral-800 border border-neutral-700 text-neutral-400 hover:text-blue-400 hover:border-blue-500/30 rounded-lg sm:rounded-xl transition-all flex items-center gap-1 sm:gap-2 text-[10px] sm:text-xs font-bold"
                                             title="View Participations"
                                         >
-                                            <Eye className="h-4 w-4" />
-                                            Details
+                                            <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                                            <span className="hidden xs:inline">Details</span>
                                         </button>
                                         <button
                                             onClick={() => handleDeleteUser(user.id, user.name || "User")}
                                             disabled={isDeleting}
-                                            className="p-2 bg-neutral-800 border border-neutral-700 text-neutral-400 hover:text-red-500 hover:border-red-500/30 rounded-xl transition-all disabled:opacity-50"
+                                            className="p-1.5 sm:p-2 bg-neutral-800 border border-neutral-700 text-neutral-400 hover:text-red-500 hover:border-red-500/30 rounded-lg sm:rounded-xl transition-all disabled:opacity-50"
                                             title="Delete User"
                                         >
-                                            <Trash2 className="h-4 w-4" />
+                                            <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                                         </button>
                                     </div>
                                 </td>
@@ -118,6 +116,7 @@ export default function UserManagementTable({ users: initialUsers }: UserManagem
                 <UserParticipationsModal
                     userId={selectedUser.id}
                     userName={selectedUser.name}
+                    joinedAt={users.find(u => u.id === selectedUser.id)?.createdAt || new Date()}
                     isOpen={true}
                     onClose={() => setSelectedUser(null)}
                 />

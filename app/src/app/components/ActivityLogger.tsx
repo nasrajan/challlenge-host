@@ -227,7 +227,7 @@ export default function ActivityLogger({
                     {success && (
                         <div className="bg-green-500/10 border border-green-500/20 text-green-400 p-4 rounded-2xl text-sm flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
                             <CheckCircle2 className="h-5 w-5 shrink-0" />
-                            Log saved successfully! You can log for another participant.
+                            Log saved successfully!.
                         </div>
                     )}
 

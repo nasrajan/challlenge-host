@@ -128,9 +128,11 @@ export default function ExpandableDescription({ title, description }: Expandable
 
     return (
         <div className="mb-8 max-w-6xl">
-            <div className="flex justify-end">
-                <DownloadButton />
-            </div>
+            {isLong && (
+                <div className="flex justify-end">
+                    <DownloadButton />
+                </div>
+            )}
 
             <div
                 ref={descriptionRef}

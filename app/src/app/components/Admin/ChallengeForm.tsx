@@ -32,6 +32,7 @@ interface ScoringRule {
 interface Metric {
     id: string; // client-side only or DB id
     name: string;
+    description?: string;
     unit: string;
     inputType: MetricInputType;
     aggregationMethod: AggregationMethod;
@@ -73,6 +74,7 @@ export default function ChallengeForm({ initialData, mode, organizers, currentUs
     const defaultMetrics: Metric[] = useMemo(() => initialData?.metrics.map(m => ({
         id: m.id || Math.random().toString(36).substr(2, 9),
         name: m.name,
+        description: m.description || "",
         unit: m.unit,
         inputType: m.inputType || "NUMBER",
         aggregationMethod: m.aggregationMethod,
@@ -92,6 +94,7 @@ export default function ChallengeForm({ initialData, mode, organizers, currentUs
             {
                 id: Math.random().toString(36).substr(2, 9),
                 name: "",
+                description: "",
                 unit: "",
                 inputType: "NUMBER",
                 aggregationMethod: "SUM",
@@ -119,6 +122,7 @@ export default function ChallengeForm({ initialData, mode, organizers, currentUs
             {
                 id: newId,
                 name: "",
+                description: "",
                 unit: "",
                 inputType: "NUMBER",
                 aggregationMethod: "SUM",
@@ -438,6 +442,15 @@ const MetricEditor = memo(function MetricEditor({
                         onChange={(e) => updateMetric({ name: e.target.value })}
                         className="w-full bg-neutral-800/50 border border-neutral-700/50 rounded-xl px-6 py-3 text-neutral-100 outline-none focus:ring-1 focus:ring-yellow-500 transition-all font-bold"
                         placeholder="e.g. Daily Walk"
+                    />
+                </div>
+                <div className="grid gap-2 sm:col-span-2">
+                    <label className="text-sm font-semibold text-neutral-400 tracking-wider">Description</label>
+                    <textarea
+                        value={metric.description || ""}
+                        onChange={(e) => updateMetric({ description: e.target.value })}
+                        className="w-full bg-neutral-800/50 border border-neutral-700/50 rounded-xl px-6 py-3 text-neutral-100 outline-none focus:ring-1 focus:ring-yellow-500 transition-all h-20"
+                        placeholder="Optional description for this task..."
                     />
                 </div>
                 <div className="grid gap-2">

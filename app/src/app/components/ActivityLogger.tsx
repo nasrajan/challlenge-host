@@ -12,6 +12,7 @@ interface Metric {
     name: string;
     unit: string;
     inputType: MetricInputType;
+    description?: string;
     qualifiers: { id: string; value: string }[];
 }
 
@@ -303,6 +304,9 @@ export default function ActivityLogger({
                                         <div className="flex-1">
                                             <h4 className="font-bold text-sm text-neutral-200">{metric.name}</h4>
                                             <span className="text-[10px] font-black text-neutral-500">{metric.unit}</span>
+                                            {metric.description && (
+                                                <p className="text-xs text-neutral-400 mt-1">{metric.description}</p>
+                                            )}
                                         </div>
                                         <div className="w-32 flex justify-end">
                                             {metric.inputType === 'CHECKBOX' ? (

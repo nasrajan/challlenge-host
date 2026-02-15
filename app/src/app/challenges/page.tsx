@@ -74,7 +74,7 @@ export default async function ChallengesExplorePage() {
                                 <div className="space-y-3 mb-8 flex-1">
                                     <div className="flex items-center gap-2 text-xs text-neutral-500 font-bold tracking-wider">
                                         <Calendar className="h-4 w-4" />
-                                        <DateDisplay date={challenge.startDate} /> — <DateDisplay date={challenge.endDate} />
+                                        <DateDisplay date={challenge.startDate} timeZone={challenge.timezone} /> — <DateDisplay date={challenge.endDate} timeZone={challenge.timezone} />
                                     </div>
                                     <div className="flex items-center gap-2 text-xs text-neutral-500 font-bold tracking-wider">
                                         <Users className="h-4 w-4" />

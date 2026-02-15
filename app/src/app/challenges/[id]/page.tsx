@@ -23,6 +23,8 @@ import ExpandableDescription from "@/app/components/ExpandableDescription"
 import { getChallengeLeaderboard } from "@/lib/scoring"
 import WeekSelector from "@/app/components/WeekSelector"
 import { addDays, format, startOfDay, endOfDay } from "date-fns"
+import { toZonedTime, fromZonedTime } from "date-fns-tz"
+import { isMidnightUTC } from "@/lib/dateUtils"
 
 export default async function ChallengeDetailPage({
     params,
@@ -62,16 +64,31 @@ export default async function ChallengeDetailPage({
 
     // Calculate Weeks
     const weeks = []
-    let currentStart = startOfDay(challenge.startDate)
+
+    // Heuristic: If startDate is Midnight UTC, treat it as a "Date Only" field and iterate in UTC
+    // to preserve the calendar date (e.g. Feb 2).
+    // Otherwise, respect the challenge's timezone.
+    const timeZone = isMidnightUTC(challenge.startDate) ? 'UTC' : challenge.timezone;
+
+    // We want the weeks to start based on the challenge start date in its timezone.
+    let currentStart = toZonedTime(challenge.startDate, timeZone);
+    const zonedEndDate = toZonedTime(challenge.endDate, timeZone);
+
     let i = 1
-    while (currentStart < challenge.endDate) {
-        let currentEnd = endOfDay(addDays(currentStart, 6))
-        if (currentEnd > endOfDay(challenge.endDate)) currentEnd = endOfDay(challenge.endDate)
+    while (currentStart < zonedEndDate) {
+        // Calculate end of week (start + 6 days)
+        let currentEnd = endOfDay(addDays(currentStart, 6));
+
+        // Cap at challenge end date
+        if (currentEnd > endOfDay(zonedEndDate)) {
+            currentEnd = endOfDay(zonedEndDate);
+        }
 
         weeks.push({
             number: i++,
-            start: currentStart,
-            end: currentEnd,
+            // We need to pass back UTC dates to the leaderboard query, so we convert back
+            start: fromZonedTime(currentStart, timeZone),
+            end: fromZonedTime(currentEnd, timeZone),
             label: `${format(currentStart, 'MMM d')} - ${format(currentEnd, 'MMM d')}`
         })
         currentStart = addDays(currentStart, 7)
@@ -112,7 +129,7 @@ export default async function ChallengeDetailPage({
                                 <div>
                                     <div className="text-[10px] font-black text-neutral-500">Duration</div>
                                     <div className="text-sm font-bold flex items-center gap-1">
-                                        <DateDisplay date={challenge.startDate} /> — <DateDisplay date={challenge.endDate} />
+                                        <DateDisplay date={challenge.startDate} timeZone={challenge.timezone} /> — <DateDisplay date={challenge.endDate} timeZone={challenge.timezone} />
                                     </div>
                                 </div>
                             </div>

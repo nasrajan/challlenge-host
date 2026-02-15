@@ -7,7 +7,7 @@ export default function Home() {
             <header className="px-6 h-16 flex items-center border-b border-neutral-800">
                 <Link className="flex items-center justify-center" href="#">
                     <Trophy className="h-6 w-6 text-yellow-500 mr-2" />
-                    <span className="font-bold text-xl tracking-tight">Challenge.io</span>
+                    <span className="font-bold text-xl tracking-tight">ChallengeForge</span>
                 </Link>
                 <nav className="ml-auto flex gap-4 sm:gap-6">
                     <Link
@@ -88,7 +88,7 @@ export default function Home() {
             </main>
             <footer className="flex flex-col gap-2 sm:flex-row py-6 w-full shrink-0 items-center px-4 md:px-6 border-t border-neutral-800">
                 <p className="text-xs text-neutral-500">
-                    © 2024 Challenge.io. All rights reserved.
+                    © 2024 ChallengeForge. All rights reserved.
                 </p>
                 <nav className="sm:ml-auto flex gap-4 sm:gap-6">
                     <Link className="text-xs hover:underline underline-offset-4 text-neutral-500" href="#">

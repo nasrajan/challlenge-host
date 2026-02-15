@@ -3,7 +3,7 @@ import SignOutConfirm from "./signout-confirm"
 import { Metadata } from "next"
 
 export const metadata: Metadata = {
-    title: "Sign Out - Challenge.io",
+    title: "Sign Out - ChallengeForge",
     description: "Sign out of your account",
 }
 

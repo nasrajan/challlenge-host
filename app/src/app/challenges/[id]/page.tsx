@@ -92,7 +92,7 @@ export default async function ChallengeDetailPage({
                 <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/10 to-transparent pointer-events-none" />
                 <Link href="/dashboard" className="flex mt-2 items-center gap-2">
                     <Trophy className="h-6 w-6 text-yellow-500" />
-                    <span className="text-xl font-bold">Challenge.io</span>
+                    <span className="text-xl font-bold">ChallengeForge</span>
                 </Link>
                 <div className="container mx-auto px-6 py-6 sm:py-6 relative">
 
@@ -153,11 +153,12 @@ export default async function ChallengeDetailPage({
                                 />
                             )}
 
-                            {session && !isParticipant && (
+                            {session && (!isParticipant || challenge.allowMultiParticipants) && (
                                 <JoinChallengeModal
                                     challengeId={challenge.id}
                                     challengeName={challenge.name}
                                     allowMultiParticipants={challenge.allowMultiParticipants}
+                                    isAlreadyParticipant={isParticipant}
                                 />
                             )}
                         </div>

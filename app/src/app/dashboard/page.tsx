@@ -86,7 +86,7 @@ export default async function DashboardPage() {
             <nav className="border-b border-neutral-800 bg-neutral-900 px-6 py-4 flex items-center justify-between">
                 <Link href="/dashboard" className="flex items-center gap-2">
                     <Trophy className="h-6 w-6 text-yellow-500" />
-                    <span className="text-xl font-bold">Challenge.io</span>
+                    <span className="text-xl font-bold">ChallengeForge</span>
                 </Link>
                 <div className="flex items-center gap-6">
                     <div className="hidden sm:flex flex-col items-end">

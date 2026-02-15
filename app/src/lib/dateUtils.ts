@@ -1,4 +1,9 @@
 export function toLocalISOString(date: Date | string): string {
+    if (isMidnightUTC(date)) {
+        // preserve the calendar date by using UTC methods
+        const d = new Date(date);
+        return d.toISOString().split('T')[0];
+    }
     const d = new Date(date);
     const year = d.getFullYear();
     const month = String(d.getMonth() + 1).padStart(2, '0');
@@ -7,6 +12,10 @@ export function toLocalISOString(date: Date | string): string {
 }
 
 export function toLocaleDisplayDate(date: Date | string): string {
+    if (isMidnightUTC(date)) {
+        const d = new Date(date);
+        return d.toLocaleDateString('en-US', { timeZone: 'UTC', year: 'numeric', month: 'numeric', day: 'numeric' });
+    }
     return new Date(date).toLocaleDateString(undefined, {
         year: 'numeric',
         month: 'numeric',
@@ -25,4 +34,9 @@ export function parseDateInTimezone(dateString: string, timeZone: string = 'Amer
     // Parse "YYYY-MM-DD" as midnight in the specified timezone
     // appending T00:00:00 to ensure we target start of day
     return fromZonedTime(`${dateString}T00:00:00`, timeZone);
+}
+
+export function isMidnightUTC(date: Date | string): boolean {
+    const d = new Date(date);
+    return d.getUTCHours() === 0 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0 && d.getUTCMilliseconds() === 0;
 }

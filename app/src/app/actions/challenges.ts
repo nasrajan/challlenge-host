@@ -151,6 +151,23 @@ export async function logActivities(data: {
     const date = parseAsPST(logDate);
 
     try {
+        const participant = await prisma.participant.findUnique({
+            where: { id: participantId },
+            select: { status: true, userId: true }
+        });
+
+        if (!participant) {
+            return { error: "Participant not found" };
+        }
+
+        if (participant.status !== "APPROVED") {
+            return { error: "You must be an approved participant to log activities." };
+        }
+
+        if (participant.userId !== session.user.id && session.user.role !== "ADMIN") {
+            return { error: "Unauthorized" };
+        }
+
         await prisma.$transaction(async (tx) => {
             for (const activity of activities) {
                 await tx.activityLog.create({

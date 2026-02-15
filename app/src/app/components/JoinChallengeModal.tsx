@@ -9,10 +9,16 @@ interface JoinChallengeModalProps {
     challengeId: string
     challengeName: string
     allowMultiParticipants: boolean
+    isAlreadyParticipant?: boolean
 }
 
 
-export default function JoinChallengeModal({ challengeId, challengeName, allowMultiParticipants }: JoinChallengeModalProps) {
+export default function JoinChallengeModal({
+    challengeId,
+    challengeName,
+    allowMultiParticipants,
+    isAlreadyParticipant
+}: JoinChallengeModalProps) {
     const [isOpen, setIsOpen] = useState(false)
     const [names, setNames] = useState<string[]>([""])
     const [error, setError] = useState("")
@@ -72,14 +78,14 @@ export default function JoinChallengeModal({ challengeId, challengeName, allowMu
                 onClick={() => setIsOpen(true)}
                 className="bg-yellow-500 text-neutral-950 px-8 py-3 rounded-2xl font-black hover:bg-yellow-400 transition-all shadow-xl shadow-yellow-500/20 active:scale-95"
             >
-                Join Challenge
+                {isAlreadyParticipant ? "Add Another Participant" : "Join Challenge"}
             </button>
 
             {isOpen && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                     <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-8 max-w-md w-full shadow-2xl animate-in fade-in zoom-in duration-300">
                         <div className="flex items-center justify-between mb-6">
-                            <h2 className="text-2xl font-bold">Join Challenge</h2>
+                            <h2 className="text-2xl font-bold">{isAlreadyParticipant ? "Add Participant" : "Join Challenge"}</h2>
                             <button
                                 onClick={() => setIsOpen(false)}
                                 className="p-2 hover:bg-neutral-800 rounded-xl text-neutral-500 hover:text-white transition-all"
@@ -89,8 +95,8 @@ export default function JoinChallengeModal({ challengeId, challengeName, allowMu
                         </div>
 
                         <p className="text-neutral-400 mb-6 font-medium">
-                            Join <span className="text-yellow-500 font-bold">{challengeName}</span>.
-                            Add one or more participants.
+                            {isAlreadyParticipant ? "Add one or more additional participants to " : "Join "}
+                            <span className="text-yellow-500 font-bold">{challengeName}</span>.
                         </p>
 
                         <form onSubmit={handleSubmit} className="space-y-6">
@@ -155,7 +161,7 @@ export default function JoinChallengeModal({ challengeId, challengeName, allowMu
                                     className="flex-[2] bg-yellow-500 hover:bg-yellow-400 text-neutral-950 px-6 py-3 rounded-xl font-black transition-all shadow-xl shadow-yellow-500/10 disabled:opacity-50 disabled:cursor-not-allowed"
                                     disabled={isPending}
                                 >
-                                    {isPending ? "Joining..." : "Join Challenge"}
+                                    {isPending ? (isAlreadyParticipant ? "Adding..." : "Joining...") : (isAlreadyParticipant ? "Add Participant" : "Join Challenge")}
                                 </button>
                             </div>
                         </form>

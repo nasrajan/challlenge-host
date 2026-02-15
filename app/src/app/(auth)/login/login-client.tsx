@@ -63,7 +63,7 @@ export default function LoginClient() {
             <div className="flex flex-col items-center">
                 <Link href="/" className="mb-6 flex items-center">
                     <Trophy className="h-8 w-8 text-yellow-500 mr-2" />
-                    <span className="text-2xl font-bold text-neutral-100">Challenge.io</span>
+                    <span className="text-2xl font-bold text-neutral-100">ChallengeForge</span>
                 </Link>
                 <h2 className="text-center text-3xl font-bold tracking-tight text-neutral-100">
                     Sign in to your account

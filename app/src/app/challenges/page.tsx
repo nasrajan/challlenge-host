@@ -40,7 +40,7 @@ export default async function ChallengesExplorePage() {
                 <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
                     <Link href="/dashboard" className="flex items-center gap-2">
                         <Trophy className="h-6 w-6 text-yellow-500" />
-                        <span className="text-xl font-bold">Challenge.io</span>
+                        <span className="text-xl font-bold">ChallengeForge</span>
                     </Link>
                     <div>
                         <h1 className="text-4xl font-bold mb-2">Explore Challenges</h1>

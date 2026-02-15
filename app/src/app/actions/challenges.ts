@@ -100,6 +100,7 @@ export async function createChallenge(formData: FormData) {
             metrics: {
                 create: metricsData.map((m: any) => ({
                     name: m.name,
+                    description: m.description,
                     unit: m.unit,
                     inputType: m.inputType,
                     aggregationMethod: m.aggregationMethod,
@@ -343,6 +344,7 @@ export async function updateChallenge(challengeId: string, formData: FormData) {
                         where: { id: m.id },
                         data: {
                             name: m.name,
+                            description: m.description,
                             unit: m.unit,
                             inputType: m.inputType,
                             aggregationMethod: m.aggregationMethod,
@@ -384,6 +386,7 @@ export async function updateChallenge(challengeId: string, formData: FormData) {
                         data: {
                             challengeId: challengeId,
                             name: m.name,
+                            description: m.description,
                             unit: m.unit,
                             inputType: m.inputType,
                             aggregationMethod: m.aggregationMethod,

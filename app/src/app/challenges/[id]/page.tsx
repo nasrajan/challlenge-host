@@ -147,6 +147,7 @@ export default async function ChallengeDetailPage({
                                         id: m.id,
                                         name: m.name,
                                         unit: m.unit,
+                                        description: m.description || undefined,
                                         qualifiers: m.qualifiers || [],
                                         inputType: m.inputType
                                     }))}
@@ -174,10 +175,13 @@ export default async function ChallengeDetailPage({
                         <div className=" space-y-6">
                             {challenge.metrics.map(m => (
                                 <div key={m.id} className="bg-neutral-900/50 border border-neutral-800 rounded-3xl p-3 hover:bg-neutral-900 transition-all">
-                                    <div className="flex items-center justify-between mb-4">
+                                    <div className="flex items-center justify-between mb-2">
                                         <h4 className="text-lg font-bold text-white">{m.name}</h4>
                                         <span className="text-[10px] font-black text-neutral-500 bg-neutral-950 px-3 py-1 rounded-full border border-neutral-800">{m.unit}</span>
                                     </div>
+                                    {m.description && (
+                                        <p className="text-sm text-neutral-400 mb-4">{m.description}</p>
+                                    )}
                                     <div className="space-y-3">
                                         {m.scoringRules.map(rule => (
                                             <div key={rule.id} className="flex items-center gap-3 text-sm">

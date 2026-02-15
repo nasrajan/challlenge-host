@@ -88,6 +88,7 @@ model ChallengeMetric {
   id                 String            @id @default(cuid())
   challengeId        String
   name               String
+  description        String?
   unit               String
   pointsPerUnit      Int?
   inputType          MetricInputType   @default(NUMBER)

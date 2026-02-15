@@ -32,6 +32,7 @@ interface ActivityLoggerProps {
     participants: Participant[]; // Added participants
     startDate: Date;
     endDate: Date;
+    showPendingMessage?: boolean; // Added prop
 }
 
 export default function ActivityLogger({
@@ -40,7 +41,8 @@ export default function ActivityLogger({
     metrics,
     participants,
     startDate,
-    endDate
+    endDate,
+    showPendingMessage = true // Default to true
 }: ActivityLoggerProps) {
     const [isOpen, setIsOpen] = useState(false)
     const [selectedParticipantId, setSelectedParticipantId] = useState(() => {
@@ -207,7 +209,7 @@ export default function ActivityLogger({
             )
         }
 
-        if (pendingParticipants.length > 0) {
+        if (pendingParticipants.length > 0 && showPendingMessage) {
             return (
                 <div className="flex items-center gap-3 bg-neutral-900/50 border border-neutral-800 px-6 py-3 rounded-2xl text-sm">
                     <div className="h-2 w-2 rounded-full bg-yellow-500 animate-pulse" />

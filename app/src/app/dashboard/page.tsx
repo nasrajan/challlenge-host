@@ -238,6 +238,7 @@ export default async function DashboardPage() {
                                                         challengeName={challenge.name}
                                                         startDate={challenge.startDate}
                                                         endDate={challenge.endDate}
+                                                        showPendingMessage={false}
                                                         participants={challenge.participants.map(p => ({
                                                             id: p.id,
                                                             userId: p.userId,

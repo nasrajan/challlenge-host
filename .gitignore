@@ -1,1 +1,9 @@
 app/alter_tables.sql
+app/prisma/migrations/migration_lock.toml
+app/prisma/migrations/20260214032017_init/migration.sql
+app/migration_diff.sql
+app/prisma/migrations/0_init/migration.sql
+app/prisma/bkmigrations/migration_lock.toml
+app/prisma/bkmigrations/20260214032017_init/migration.sql
+app/prisma/migrations/manual_fix.sql
+.gitignore

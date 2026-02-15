@@ -89,6 +89,7 @@ model ChallengeMetric {
   challengeId        String
   name               String
   unit               String
+  pointsPerUnit      Int?
   inputType          MetricInputType   @default(NUMBER)
   aggregationMethod  AggregationMethod @default(SUM)
   scoringFrequency   ScoringFrequency  @default(DAILY)

@@ -81,9 +81,22 @@ export async function calculateParticipantScoreForMetric(
 }
 
 export function calculateScoreFromLogs(logs: ActivityLog[], metric: any, participant: any) {
+    // Filter logs to only keep the latest entry per (Date, Qualifier)
+    const latestLogsMap: Map<string, ActivityLog> = new Map();
+    logs.forEach(log => {
+        const dateKey = log.date instanceof Date ? log.date.toISOString().split('T')[0] : new Date(log.date).toISOString().split('T')[0];
+        const key = `${dateKey}_${log.qualifierId || 'null'}`;
+        const existing = latestLogsMap.get(key);
+        if (!existing || new Date(log.createdAt) > new Date(existing.createdAt)) {
+            latestLogsMap.set(key, log);
+        }
+    });
+
+    const filteredLogs = Array.from(latestLogsMap.values());
+
     // Group logs by scoring period
     const periodsLogs: Map<string, ActivityLog[]> = new Map();
-    logs.forEach(log => {
+    filteredLogs.forEach(log => {
         const { start } = getPeriodInterval(log.date, metric.scoringFrequency);
         const key = start.toISOString();
         if (!periodsLogs.has(key)) periodsLogs.set(key, []);
@@ -126,33 +139,43 @@ export function calculateScoreFromLogs(logs: ActivityLog[], metric: any, partici
 
         let periodRawPoints = 0;
 
-        // Apply rules for each qualifier group
-        qualifierGroups.forEach((aggregatedValue, qualifierId) => {
-            const relevantRules = metric.scoringRules.filter((rule: any) => rule.qualifierId === qualifierId);
-
-            const rulesToEvaluate = relevantRules.length > 0
-                ? relevantRules
-                : metric.scoringRules.filter((rule: any) => rule.qualifierId === null);
-
-            rulesToEvaluate.forEach((rule: any) => {
-                let matches = false;
-                switch (rule.comparisonType) {
-                    case "RANGE":
-                        matches = aggregatedValue >= (rule.minValue ?? 0) && aggregatedValue <= (rule.maxValue ?? Infinity);
-                        break;
-                    case "GREATER_THAN":
-                        matches = aggregatedValue > (rule.minValue ?? 0);
-                        break;
-                    case "GREATER_THAN_EQUAL":
-                        matches = aggregatedValue >= (rule.minValue ?? 0);
-                        break;
-                }
-
-                if (matches) {
-                    periodRawPoints += rule.points;
-                }
+        if (metric.pointsPerUnit !== null && metric.pointsPerUnit !== undefined) {
+            // Use Points Per Unit - bypass rules
+            // Calculate total units across all logs in period
+            let totalUnits = 0;
+            qualifierGroups.forEach((val) => {
+                totalUnits += val;
             });
-        });
+            periodRawPoints = totalUnits * metric.pointsPerUnit;
+        } else {
+            // Apply rules for each qualifier group
+            qualifierGroups.forEach((aggregatedVal, qualifierId) => {
+                const relevantRules = metric.scoringRules.filter((rule: any) => rule.qualifierId === qualifierId);
+
+                const rulesToEvaluate = relevantRules.length > 0
+                    ? relevantRules
+                    : metric.scoringRules.filter((rule: any) => rule.qualifierId === null);
+
+                rulesToEvaluate.forEach((rule: any) => {
+                    let matches = false;
+                    switch (rule.comparisonType) {
+                        case "RANGE":
+                            matches = aggregatedVal >= (rule.minValue ?? 0) && aggregatedVal <= (rule.maxValue ?? Infinity);
+                            break;
+                        case "GREATER_THAN":
+                            matches = aggregatedVal > (rule.minValue ?? 0);
+                            break;
+                        case "GREATER_THAN_EQUAL":
+                            matches = aggregatedVal >= (rule.minValue ?? 0);
+                            break;
+                    }
+
+                    if (matches) {
+                        periodRawPoints += rule.points;
+                    }
+                });
+            });
+        }
 
         // Apply Period Cap
         let periodCappedPoints = periodRawPoints;

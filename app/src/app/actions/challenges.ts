@@ -106,6 +106,7 @@ export async function createChallenge(formData: FormData) {
                     scoringFrequency: m.scoringFrequency,
                     maxPointsPerPeriod: m.maxPointsPerPeriod,
                     maxPointsTotal: m.maxPointsTotal,
+                    pointsPerUnit: m.pointsPerUnit,
                     qualifiers: {
                         create: (m.qualifiers || []).map((q: any) => ({
                             value: q.value,
@@ -331,6 +332,7 @@ export async function updateChallenge(challengeId: string, formData: FormData) {
                             scoringFrequency: m.scoringFrequency,
                             maxPointsPerPeriod: m.maxPointsPerPeriod,
                             maxPointsTotal: m.maxPointsTotal,
+                            pointsPerUnit: m.pointsPerUnit,
                         }
                     })
 
@@ -371,6 +373,7 @@ export async function updateChallenge(challengeId: string, formData: FormData) {
                             scoringFrequency: m.scoringFrequency,
                             maxPointsPerPeriod: m.maxPointsPerPeriod,
                             maxPointsTotal: m.maxPointsTotal,
+                            pointsPerUnit: m.pointsPerUnit,
                             qualifiers: {
                                 create: (m.qualifiers || []).map((q: any) => ({
                                     value: q.value,

@@ -38,6 +38,7 @@ interface Metric {
     scoringFrequency: ScoringFrequency;
     maxPointsPerPeriod: number | null;
     maxPointsTotal: number | null;
+    pointsPerUnit: number | null;
     qualifiers: { id: string; value: string }[];
     scoringRules: ScoringRule[];
 }
@@ -78,6 +79,7 @@ export default function ChallengeForm({ initialData, mode, organizers, currentUs
         scoringFrequency: m.scoringFrequency,
         maxPointsPerPeriod: m.maxPointsPerPeriod,
         maxPointsTotal: m.maxPointsTotal,
+        pointsPerUnit: m.pointsPerUnit || null,
         qualifiers: m.qualifiers || [],
         scoringRules: m.scoringRules || [{
             comparisonType: "GREATER_THAN_EQUAL",
@@ -96,6 +98,7 @@ export default function ChallengeForm({ initialData, mode, organizers, currentUs
                 scoringFrequency: "DAILY",
                 maxPointsPerPeriod: null,
                 maxPointsTotal: null,
+                pointsPerUnit: null,
                 qualifiers: [],
                 scoringRules: [{
                     comparisonType: "GREATER_THAN_EQUAL",
@@ -122,6 +125,7 @@ export default function ChallengeForm({ initialData, mode, organizers, currentUs
                 scoringFrequency: "DAILY",
                 maxPointsPerPeriod: null,
                 maxPointsTotal: null,
+                pointsPerUnit: null,
                 qualifiers: [],
                 scoringRules: [{
                     comparisonType: "GREATER_THAN_EQUAL",
@@ -478,12 +482,13 @@ const MetricEditor = memo(function MetricEditor({
                 {metric.inputType !== 'CHECKBOX' && (
                     <>
                         <div className="grid gap-2">
-                            <label className="text-sm font-semibold text-neutral-400 tracking-wider">Unit</label>
+                            <label className="text-sm font-semibold text-neutral-400 tracking-wider">Points Per Unit</label>
                             <input
-                                value={metric.unit}
-                                onChange={(e) => updateMetric({ unit: e.target.value })}
+                                type="number"
+                                value={metric.pointsPerUnit || ""}
+                                onChange={(e) => updateMetric({ pointsPerUnit: e.target.value ? parseInt(e.target.value) : null })}
                                 className="w-full bg-neutral-800/50 border border-neutral-700/50 rounded-xl px-6 py-3 text-neutral-100 outline-none focus:ring-1 focus:ring-yellow-500 transition-all"
-                                placeholder="e.g. steps"
+                                placeholder="e.g. 5 (Leave empty for rules)"
                             />
                         </div>
                         <div className="grid gap-2">

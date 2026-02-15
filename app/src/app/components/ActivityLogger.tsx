@@ -43,7 +43,10 @@ export default function ActivityLogger({
     endDate
 }: ActivityLoggerProps) {
     const [isOpen, setIsOpen] = useState(false)
-    const [selectedParticipantId, setSelectedParticipantId] = useState(participants[0]?.id || "")
+    const [selectedParticipantId, setSelectedParticipantId] = useState(() => {
+        const firstApproved = participants.find(p => p.status === 'APPROVED')
+        return firstApproved?.id || ""
+    })
     const [loading, setLoading] = useState(false)
     const [loadingLogs, setLoadingLogs] = useState(false)
     const [error, setError] = useState<string | null>(null)
@@ -188,16 +191,34 @@ export default function ActivityLogger({
         router.push("/dashboard")
     }
 
+    const approvedParticipants = participants.filter(p => p.status === 'APPROVED')
+    const pendingParticipants = participants.filter(p => p.status === 'PENDING')
+
     if (!isOpen) {
-        return (
-            <button
-                onClick={() => setIsOpen(true)}
-                className="flex items-center gap-2 bg-yellow-500 hover:bg-yellow-400 text-neutral-950 px-6 py-3 rounded-2xl transition-all text-sm font-bold shadow-xl shadow-yellow-500/20 active:scale-95"
-            >
-                <Plus className="h-4 w-4" />
-                Update Activities
-            </button>
-        )
+        if (approvedParticipants.length > 0) {
+            return (
+                <button
+                    onClick={() => setIsOpen(true)}
+                    className="flex items-center gap-2 bg-yellow-500 hover:bg-yellow-400 text-neutral-950 px-6 py-3 rounded-2xl transition-all text-sm font-bold shadow-xl shadow-yellow-500/20 active:scale-95"
+                >
+                    <Plus className="h-4 w-4" />
+                    Update Activities
+                </button>
+            )
+        }
+
+        if (pendingParticipants.length > 0) {
+            return (
+                <div className="flex items-center gap-3 bg-neutral-900/50 border border-neutral-800 px-6 py-3 rounded-2xl text-sm">
+                    <div className="h-2 w-2 rounded-full bg-yellow-500 animate-pulse" />
+                    <span className="text-neutral-400 font-medium">
+                        Approval pending for: <span className="text-neutral-200 font-bold">{pendingParticipants.map(p => p.displayName || p.name).join(", ")}</span>
+                    </span>
+                </div>
+            )
+        }
+
+        return null;
     }
 
     return (
@@ -227,7 +248,7 @@ export default function ActivityLogger({
                     {success && (
                         <div className="bg-green-500/10 border border-green-500/20 text-green-400 p-4 rounded-2xl text-sm flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
                             <CheckCircle2 className="h-5 w-5 shrink-0" />
-                            Log saved successfully!.
+                            Log saved successfully!
                         </div>
                     )}
 
@@ -241,7 +262,7 @@ export default function ActivityLogger({
                                         onChange={(e) => setSelectedParticipantId(e.target.value)}
                                         className="w-full bg-neutral-800/50 border border-neutral-700/50 rounded-2xl px-4 py-4 outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500 transition-all font-bold appearance-none text-neutral-200"
                                     >
-                                        {participants.map(p => (
+                                        {approvedParticipants.map(p => (
                                             <option key={p.id} value={p.id}>{p.name}</option>
                                         ))}
                                     </select>

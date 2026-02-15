@@ -37,7 +37,7 @@ export default async function DashboardPage() {
                             participants: {
                                 some: {
                                     userId: session.user.id,
-                                    status: "APPROVED"
+                                    status: { in: ["APPROVED", "PENDING"] }
                                 }
                             }
                         }

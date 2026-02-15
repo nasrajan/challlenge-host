@@ -8,30 +8,39 @@ import {
     ScoringRule,
     ActivityLog
 } from "@prisma/client";
-import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval } from "date-fns";
+import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval, format } from "date-fns";
+import { toZonedTime, fromZonedTime } from "date-fns-tz";
 
 export interface Period {
     start: Date;
     end: Date;
 }
 
-export function getPeriodInterval(date: Date, frequency: ScoringFrequency): Period {
+export function getPeriodInterval(date: Date, frequency: ScoringFrequency, timeZone: string = "UTC"): Period {
     let start, end;
+    // accurate start/end based on timezone
+    const zonedDate = toZonedTime(date, timeZone);
+
     switch (frequency) {
         case "DAILY":
-            start = startOfDay(date);
-            end = endOfDay(date);
+            start = startOfDay(zonedDate);
+            end = endOfDay(zonedDate);
             break;
         case "WEEKLY":
-            start = startOfWeek(date, { weekStartsOn: 1 }); // Monday start
-            end = endOfWeek(date, { weekStartsOn: 1 });
+            start = startOfWeek(zonedDate, { weekStartsOn: 1 }); // Monday start
+            end = endOfWeek(zonedDate, { weekStartsOn: 1 });
             break;
         case "MONTHLY":
-            start = startOfMonth(date);
-            end = endOfMonth(date);
+            start = startOfMonth(zonedDate);
+            end = endOfMonth(zonedDate);
             break;
     }
-    return { start: start!, end: end! };
+
+    // Convert back to UTC instant
+    return {
+        start: fromZonedTime(start!, timeZone),
+        end: fromZonedTime(end!, timeZone)
+    };
 }
 
 export async function calculateParticipantScoreForMetric(
@@ -65,7 +74,7 @@ export async function calculateParticipantScoreForMetric(
         orderBy: { date: 'asc' }
     });
 
-    const { totalPoints, snapshots } = calculateScoreFromLogs(logs, metric, participant);
+    const { totalPoints, snapshots } = calculateScoreFromLogs(logs, metric, participant, metric.challenge.timezone);
 
     // Update ScoreSnapshots in DB
     // First clear existing snapshots for this participant/metric
@@ -80,11 +89,12 @@ export async function calculateParticipantScoreForMetric(
     return totalPoints;
 }
 
-export function calculateScoreFromLogs(logs: ActivityLog[], metric: any, participant: any) {
+export function calculateScoreFromLogs(logs: ActivityLog[], metric: any, participant: any, timeZone: string = "UTC") {
     // Filter logs to only keep the latest entry per (Date, Qualifier)
     const latestLogsMap: Map<string, ActivityLog> = new Map();
     logs.forEach(log => {
-        const dateKey = log.date instanceof Date ? log.date.toISOString().split('T')[0] : new Date(log.date).toISOString().split('T')[0];
+        // Use timezone to determine the "Day" key
+        const dateKey = format(toZonedTime(log.date, timeZone), 'yyyy-MM-dd');
         const key = `${dateKey}_${log.qualifierId || 'null'}`;
         const existing = latestLogsMap.get(key);
         if (!existing || new Date(log.createdAt) > new Date(existing.createdAt)) {
@@ -97,7 +107,7 @@ export function calculateScoreFromLogs(logs: ActivityLog[], metric: any, partici
     // Group logs by scoring period
     const periodsLogs: Map<string, ActivityLog[]> = new Map();
     filteredLogs.forEach(log => {
-        const { start } = getPeriodInterval(log.date, metric.scoringFrequency);
+        const { start } = getPeriodInterval(log.date, metric.scoringFrequency, timeZone);
         const key = start.toISOString();
         if (!periodsLogs.has(key)) periodsLogs.set(key, []);
         periodsLogs.get(key)!.push(log);
@@ -108,7 +118,7 @@ export function calculateScoreFromLogs(logs: ActivityLog[], metric: any, partici
 
     // Iterate through periods
     for (const [periodKey, logsInPeriod] of periodsLogs) {
-        const { start, end } = getPeriodInterval(new Date(periodKey), metric.scoringFrequency);
+        const { start, end } = getPeriodInterval(new Date(periodKey), metric.scoringFrequency, timeZone);
 
         // Group logs in period by qualifier
         const qualifierGroups: Map<string | null, number> = new Map();
@@ -255,7 +265,7 @@ export async function getChallengeLeaderboard(challengeId: string, startDate?: D
         let totalScore = 0;
         const metricScores = challenge.metrics.map(m => {
             const logs = p.activityLogs.filter(l => l.metricId === m.id);
-            const { totalPoints } = calculateScoreFromLogs(logs, m, p);
+            const { totalPoints } = calculateScoreFromLogs(logs, m, p, challenge.timezone);
             totalScore += totalPoints;
             return {
                 name: m.name,

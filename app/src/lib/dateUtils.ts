@@ -26,3 +26,8 @@ export function parseDateInTimezone(dateString: string, timeZone: string = 'Amer
     // appending T00:00:00 to ensure we target start of day
     return fromZonedTime(`${dateString}T00:00:00`, timeZone);
 }
+
+export function isMidnightUTC(date: Date | string): boolean {
+    const d = new Date(date);
+    return d.getUTCHours() === 0 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0 && d.getUTCMilliseconds() === 0;
+}

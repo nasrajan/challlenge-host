@@ -81,8 +81,8 @@ export default async function AdminChallengesPage() {
                                 </td>
                                 <td className="px-4 py-4 sm:px-6 text-neutral-500 font-mono text-[10px] tracking-tighter">
                                     <div className="flex flex-col">
-                                        <span className="flex items-center gap-1"><span className="text-neutral-700 font-black">START:</span> <DateDisplay date={challenge.startDate} /></span>
-                                        <span className="flex items-center gap-1"><span className="text-neutral-700 font-black">END:</span> <DateDisplay date={challenge.endDate} /></span>
+                                        <span className="flex items-center gap-1"><span className="text-neutral-700 font-black">START:</span> <DateDisplay date={challenge.startDate} timeZone={challenge.timezone} /></span>
+                                        <span className="flex items-center gap-1"><span className="text-neutral-700 font-black">END:</span> <DateDisplay date={challenge.endDate} timeZone={challenge.timezone} /></span>
                                     </div>
                                 </td>
                                 <td className="px-4 py-4 sm:px-6 text-right font-black text-neutral-400">

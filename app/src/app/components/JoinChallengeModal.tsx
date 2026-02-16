@@ -66,8 +66,9 @@ export default function JoinChallengeModal({
                 setIsOpen(false)
                 setNames([""])
                 router.refresh()
-            } catch (err: any) {
-                setError(err.message || "Failed to join challenge")
+            } catch (err: unknown) {
+                const message = err instanceof Error ? err.message : "Failed to join challenge"
+                setError(message)
             }
         })
     }

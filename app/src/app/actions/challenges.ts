@@ -4,12 +4,44 @@ import { prisma } from "@/lib/prisma"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import {
-    Prisma
+    AggregationMethod,
+    ComparisonType,
+    MetricInputType,
+    ParticipantStatus,
+    Prisma,
+    ScoringFrequency
 } from "@prisma/client"
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 import { recalculateParticipantChallengeScore, calculateParticipantScoreForMetric } from "@/lib/scoring"
 import { parseAsPST } from "@/lib/dateUtils"
+import { startOfDay, endOfDay } from "date-fns"
+
+interface MetricPayloadQualifier {
+    value: string
+}
+
+interface MetricPayloadRule {
+    comparisonType: ComparisonType
+    minValue: number | null
+    maxValue: number | null
+    points: number
+}
+
+interface MetricPayload {
+    id: string
+    name: string
+    description?: string | null
+    unit: string
+    inputType: MetricInputType
+    aggregationMethod: AggregationMethod
+    scoringFrequency: ScoringFrequency
+    maxPointsPerPeriod: number | null
+    maxPointsTotal: number | null
+    pointsPerUnit: number | null
+    qualifiers?: MetricPayloadQualifier[]
+    scoringRules?: MetricPayloadRule[]
+}
 
 export async function syncChallengeStatuses(now: Date = new Date()) {
     await prisma.$transaction([
@@ -82,7 +114,7 @@ export async function createChallenge(formData: FormData) {
     const organizerId = formData.get("organizerId") as string | null
 
     const metricsDataJson = formData.get("metricsData") as string
-    const metricsData = JSON.parse(metricsDataJson || "[]")
+    const metricsData = JSON.parse(metricsDataJson || "[]") as MetricPayload[]
 
     try {
         const challengeData: Prisma.ChallengeCreateInput = {
@@ -98,7 +130,7 @@ export async function createChallenge(formData: FormData) {
             organizer: { connect: { id: (session.user.role === 'ADMIN' && organizerId) ? organizerId : session.user.id } },
             status: "UPCOMING",
             metrics: {
-                create: metricsData.map((m: any) => ({
+                create: metricsData.map((m) => ({
                     name: m.name,
                     description: m.description,
                     unit: m.unit,
@@ -109,12 +141,12 @@ export async function createChallenge(formData: FormData) {
                     maxPointsTotal: m.maxPointsTotal,
                     pointsPerUnit: m.pointsPerUnit,
                     qualifiers: {
-                        create: (m.qualifiers || []).map((q: any) => ({
+                        create: (m.qualifiers || []).map((q) => ({
                             value: q.value,
                         }))
                     },
                     scoringRules: {
-                        create: (m.scoringRules || []).map((r: any) => ({
+                        create: (m.scoringRules || []).map((r) => ({
                             comparisonType: r.comparisonType,
                             minValue: r.minValue,
                             maxValue: r.maxValue,
@@ -203,9 +235,9 @@ export async function getActivityLogsForDate(challengeId: string, logDate: strin
     const session = await getServerSession(authOptions)
     if (!session) throw new Error("Unauthorized")
 
-    const dayStart = new Date(logDate)
-    const dayEnd = new Date(dayStart)
-    dayEnd.setDate(dayStart.getDate() + 1)
+    const date = parseAsPST(logDate)
+    const dayStart = startOfDay(date)
+    const dayEnd = endOfDay(date)
 
     return prisma.activityLog.findMany({
         where: {
@@ -214,7 +246,7 @@ export async function getActivityLogsForDate(challengeId: string, logDate: strin
             ...(participantId ? { participantId } : {}),
             date: {
                 gte: dayStart,
-                lt: dayEnd
+                lte: dayEnd
             }
         },
         select: {
@@ -257,7 +289,7 @@ export async function joinChallenge(challengeId: string, names: string[]) {
 
     if (!challenge) throw new Error("Challenge not found")
 
-    const status = challenge.requiresApproval ? "PENDING" : "APPROVED"
+    const status: ParticipantStatus = challenge.requiresApproval ? "PENDING" : "APPROVED"
 
     await prisma.$transaction(
         names.map(name =>
@@ -267,7 +299,7 @@ export async function joinChallenge(challengeId: string, names: string[]) {
                     challengeId,
                     name: name.trim(),
                     displayName: name.trim(),
-                    status: status as any
+                    status
                 }
             })
         )
@@ -296,7 +328,7 @@ export async function updateChallenge(challengeId: string, formData: FormData) {
     const organizerId = formData.get("organizerId") as string | null
 
     const metricsDataJson = formData.get("metricsData") as string
-    const metricsData = JSON.parse(metricsDataJson || "[]")
+    const metricsData = JSON.parse(metricsDataJson || "[]") as MetricPayload[]
 
     try {
         await prisma.$transaction(async (tx) => {
@@ -326,7 +358,7 @@ export async function updateChallenge(challengeId: string, formData: FormData) {
 
             // Handle Key Metrics
             const existingMetricIds = new Set(existing.metrics.map(m => m.id))
-            const incomingMetricIds = new Set(metricsData.map((m: any) => m.id))
+            const incomingMetricIds = new Set(metricsData.map((m) => m.id))
 
             // 1. Delete removed metrics
             const metricsToDelete = existing.metrics.filter(m => !incomingMetricIds.has(m.id))
@@ -363,7 +395,7 @@ export async function updateChallenge(challengeId: string, formData: FormData) {
 
                     if (m.scoringRules && m.scoringRules.length > 0) {
                         await tx.scoringRule.createMany({
-                            data: m.scoringRules.map((r: any) => ({
+                            data: m.scoringRules.map((r) => ({
                                 metricId: m.id,
                                 comparisonType: r.comparisonType,
                                 minValue: r.minValue,
@@ -395,12 +427,12 @@ export async function updateChallenge(challengeId: string, formData: FormData) {
                             maxPointsTotal: m.maxPointsTotal,
                             pointsPerUnit: m.pointsPerUnit,
                             qualifiers: {
-                                create: (m.qualifiers || []).map((q: any) => ({
+                                create: (m.qualifiers || []).map((q) => ({
                                     value: q.value,
                                 }))
                             },
                             scoringRules: {
-                                create: (m.scoringRules || []).map((r: any) => ({
+                                create: (m.scoringRules || []).map((r) => ({
                                     comparisonType: r.comparisonType,
                                     minValue: r.minValue,
                                     maxValue: r.maxValue,

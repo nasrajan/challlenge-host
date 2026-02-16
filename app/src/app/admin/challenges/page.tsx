@@ -1,40 +1,33 @@
 export const dynamic = 'force-dynamic'
 
-import { Trophy, BarChart, Trash2, Edit2, Calendar, ChevronLeft, Zap, Clock, Eye } from "lucide-react"
+import { BarChart, Trash2, Edit2, Calendar, ChevronLeft, Zap, Clock, Eye } from "lucide-react"
+import type { LucideIcon } from "lucide-react"
+import type { Prisma } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 import { revalidatePath } from "next/cache"
 import Link from "next/link"
 import { approveParticipant, syncChallengeStatuses } from "@/app/actions/challenges"
 import DateDisplay from "@/app/components/DateDisplay"
 
-export default async function AdminChallengesPage() {
-    await syncChallengeStatuses()
+type ChallengeListItem = Prisma.ChallengeGetPayload<{
+    include: {
+        organizer: true
+        metrics: true
+        _count: {
+            select: { participants: true }
+        }
+    }
+}>
 
-    const pendingParticipants = await prisma.participant.findMany({
-        where: { status: "PENDING" },
-        include: {
-            user: true,
-            challenge: true
-        },
-        orderBy: { joinedAt: "desc" }
-    })
+interface ChallengeTableProps {
+    challenges: ChallengeListItem[]
+    title: string
+    icon: LucideIcon
+    colorClass: string
+}
 
-    const allChallenges = await prisma.challenge.findMany({
-        include: {
-            organizer: true,
-            metrics: true,
-            _count: {
-                select: { participants: true }
-            }
-        },
-        orderBy: { startDate: 'asc' }
-    })
-
-    const activeChallenges = allChallenges.filter(c => c.status === 'ACTIVE')
-    const upcomingChallenges = allChallenges.filter(c => c.status === 'UPCOMING')
-    const completedChallenges = allChallenges.filter(c => c.status === 'COMPLETED')
-
-    const ChallengeTable = ({ challenges, title, icon: Icon, colorClass }: any) => (
+function ChallengeTable({ challenges, title, icon: Icon, colorClass }: ChallengeTableProps) {
+    return (
         <section className="bg-neutral-900 rounded-2xl border border-neutral-800 overflow-hidden shadow-2xl mb-12">
             <div className="px-6 py-4 border-b border-neutral-800 bg-neutral-900/50 flex items-center justify-between">
                 <h2 className={`text-xl font-bold flex items-center gap-2 italic tracking-tighter ${colorClass}`}>
@@ -56,7 +49,7 @@ export default async function AdminChallengesPage() {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-neutral-800 text-sm">
-                        {challenges.map((challenge: any) => (
+                        {challenges.map((challenge) => (
                             <tr key={challenge.id} className="hover:bg-neutral-800/40 transition-colors group">
                                 <td className="px-4 py-4 sm:px-6 max-w-xs">
                                     <div className="font-bold text-neutral-200 group-hover:text-white transition-colors truncate">
@@ -68,9 +61,9 @@ export default async function AdminChallengesPage() {
                                 </td>
                                 <td className="px-4 py-4 sm:px-6">
                                     <div className="flex flex-wrap gap-1">
-                                        {challenge.metrics.map((m: any) => (
-                                            <span key={m.id} className="bg-neutral-950 text-neutral-500 text-[9px] font-black px-1.5 py-0.5 rounded border border-neutral-800 uppercase">
-                                                {m.name}
+                                        {challenge.metrics.map((metric) => (
+                                            <span key={metric.id} className="bg-neutral-950 text-neutral-500 text-[9px] font-black px-1.5 py-0.5 rounded border border-neutral-800 uppercase">
+                                                {metric.name}
                                             </span>
                                         ))}
                                     </div>
@@ -126,6 +119,34 @@ export default async function AdminChallengesPage() {
             </div>
         </section>
     )
+}
+
+export default async function AdminChallengesPage() {
+    await syncChallengeStatuses()
+
+    const pendingParticipants = await prisma.participant.findMany({
+        where: { status: "PENDING" },
+        include: {
+            user: true,
+            challenge: true
+        },
+        orderBy: { joinedAt: "desc" }
+    })
+
+    const allChallenges = await prisma.challenge.findMany({
+        include: {
+            organizer: true,
+            metrics: true,
+            _count: {
+                select: { participants: true }
+            }
+        },
+        orderBy: { startDate: 'asc' }
+    })
+
+    const activeChallenges = allChallenges.filter(c => c.status === 'ACTIVE')
+    const upcomingChallenges = allChallenges.filter(c => c.status === 'UPCOMING')
+    const completedChallenges = allChallenges.filter(c => c.status === 'COMPLETED')
 
     return (
         <div className="min-h-screen bg-neutral-950 text-neutral-100 p-8">

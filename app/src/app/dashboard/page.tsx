@@ -3,11 +3,148 @@ import { getServerSession } from "next-auth"
 import { redirect } from "next/navigation"
 import Link from "next/link"
 import { Trophy, Plus, Settings, Users, LogOut, ChevronRight, Activity, UserCheck, Edit2 } from "lucide-react"
+import type {
+    AggregationMethod,
+    ComparisonType,
+    MetricInputType,
+    Prisma,
+    ParticipantStatus,
+    ScoringFrequency
+} from "@prisma/client"
 import { prisma } from "@/lib/prisma"
-import ActivityLogger from "@/app/components/ActivityLogger"
 import { approveParticipant, syncChallengeStatuses } from "@/app/actions/challenges"
-import { addDays, startOfDay, endOfDay } from "date-fns"
+import { addDays, endOfDay, format } from "date-fns"
+import { toZonedTime, fromZonedTime, formatInTimeZone } from "date-fns-tz"
 import { calculateScoreFromLogs } from "@/lib/scoring"
+import { isMidnightUTC } from "@/lib/dateUtils"
+
+import ActivityLogger from "@/app/components/ActivityLoggerClient"
+
+type ScoreLogsArg = Parameters<typeof calculateScoreFromLogs>[0]
+type ScoreMetricArg = Parameters<typeof calculateScoreFromLogs>[1]
+type ScoreParticipantArg = Parameters<typeof calculateScoreFromLogs>[2]
+
+interface DashboardQualifier {
+    id: string
+    value: string
+}
+
+interface DashboardScoringRule {
+    id: string
+    qualifierId: string | null
+    comparisonType: ComparisonType
+    minValue: number | null
+    maxValue: number | null
+    points: number
+}
+
+interface DashboardActivityLog {
+    date: Date
+    value: number
+    qualifierId: string | null
+    createdAt: Date
+    participantId: string | null
+}
+
+interface DashboardScoreSnapshot {
+    totalPoints: number
+    participantId: string | null
+    periodStart: Date
+}
+
+interface DashboardMetric {
+    id: string
+    name: string
+    description: string | null
+    unit: string
+    inputType: MetricInputType
+    aggregationMethod: AggregationMethod
+    scoringFrequency: ScoringFrequency
+    challengeId: string
+    pointsPerUnit: number | null
+    maxPointsPerPeriod: number | null
+    maxPointsTotal: number | null
+    qualifiers: DashboardQualifier[]
+    scoringRules: DashboardScoringRule[]
+    activityLogs: DashboardActivityLog[]
+    scoreSnapshots: DashboardScoreSnapshot[]
+}
+
+interface DashboardParticipant {
+    id: string
+    userId: string
+    challengeId: string
+    name: string
+    displayName: string | null
+    joinedAt: Date
+    status: ParticipantStatus
+}
+
+interface DashboardChallenge {
+    id: string
+    name: string
+    status: string
+    organizerId: string
+    startDate: Date
+    endDate: Date
+    timezone: string | null
+    metrics: DashboardMetric[]
+    participants: DashboardParticipant[]
+}
+
+interface DashboardItem {
+    challenge: DashboardChallenge
+    participant: DashboardParticipant | null
+    key: string
+}
+
+function getCurrentChallengeWeekWindow(
+    startDate: Date,
+    endDate: Date,
+    timeZone: string,
+    now: Date = new Date(),
+    useLocalCalendarDateForCurrentWeek: boolean = false
+) {
+    const zonedNow = toZonedTime(now, timeZone)
+    let currentStart = toZonedTime(startDate, timeZone)
+    const zonedEndDate = toZonedTime(endDate, timeZone)
+
+    let fallbackWeek = {
+        weekStartUtc: fromZonedTime(currentStart, timeZone),
+        weekEndUtc: fromZonedTime(endOfDay(addDays(currentStart, 6)), timeZone),
+        rangeLabel: `${format(currentStart, 'MMM d')} - ${format(endOfDay(addDays(currentStart, 6)), 'MMM d')}`
+    }
+
+    while (currentStart < zonedEndDate) {
+        let currentEnd = endOfDay(addDays(currentStart, 6))
+        if (currentEnd > endOfDay(zonedEndDate)) {
+            currentEnd = endOfDay(zonedEndDate)
+        }
+
+        const currentWeek = {
+            weekStartUtc: fromZonedTime(currentStart, timeZone),
+            weekEndUtc: fromZonedTime(currentEnd, timeZone),
+            rangeLabel: `${format(currentStart, 'MMM d')} - ${format(currentEnd, 'MMM d')}`
+        }
+
+        fallbackWeek = currentWeek
+
+        if (useLocalCalendarDateForCurrentWeek) {
+            const todayLocalKey = format(now, 'yyyy-MM-dd')
+            const weekStartKey = formatInTimeZone(currentWeek.weekStartUtc, 'UTC', 'yyyy-MM-dd')
+            const weekEndKey = formatInTimeZone(currentWeek.weekEndUtc, 'UTC', 'yyyy-MM-dd')
+            if (todayLocalKey >= weekStartKey && todayLocalKey <= weekEndKey) {
+                return currentWeek
+            }
+        } else if (zonedNow >= currentStart && zonedNow <= currentEnd) {
+            return currentWeek
+        }
+
+        currentStart = addDays(currentStart, 7)
+    }
+
+    return fallbackWeek
+}
 
 export default async function DashboardPage() {
     const session = await getServerSession(authOptions)
@@ -27,7 +164,7 @@ export default async function DashboardPage() {
             ]
         }
 
-    const challenges = await prisma.challenge.findMany({
+    const challengesQuery = {
         where: {
             AND: [
                 {
@@ -46,26 +183,100 @@ export default async function DashboardPage() {
                 visibilityFilter
             ]
         },
-        include: {
+        select: {
+            id: true,
+            name: true,
+            status: true,
+            organizerId: true,
+            startDate: true,
+            endDate: true,
+            timezone: true,
             metrics: {
-                include: {
-                    qualifiers: true,
-                    scoringRules: true,
+                select: {
+                    id: true,
+                    name: true,
+                    description: true,
+                    unit: true,
+                    inputType: true,
+                    aggregationMethod: true,
+                    scoringFrequency: true,
+                    challengeId: true,
+                    pointsPerUnit: true,
+                    maxPointsPerPeriod: true,
+                    maxPointsTotal: true,
+                    qualifiers: {
+                        select: { id: true, value: true }
+                    },
+                    scoringRules: {
+                        select: {
+                            id: true,
+                            qualifierId: true,
+                            comparisonType: true,
+                            minValue: true,
+                            maxValue: true,
+                            points: true
+                        }
+                    },
                     activityLogs: {
-                        where: { userId: session.user.id }
+                        where: { userId: session.user.id },
+                        select: {
+                            date: true,
+                            value: true,
+                            qualifierId: true,
+                            createdAt: true,
+                            participantId: true
+                        }
                     },
                     scoreSnapshots: {
                         where: { userId: session.user.id },
                         orderBy: { periodStart: 'desc' },
-                        take: 1
+                        select: {
+                            totalPoints: true,
+                            participantId: true,
+                            periodStart: true
+                        }
                     }
                 }
             },
             participants: {
-                where: { userId: session.user.id }
+                where: { userId: session.user.id },
+                select: {
+                    id: true,
+                    userId: true,
+                    challengeId: true,
+                    name: true,
+                    displayName: true,
+                    joinedAt: true,
+                    status: true
+                }
             }
         }
-    })
+    } satisfies Prisma.ChallengeFindManyArgs
+
+    const challenges = await prisma.challenge.findMany(challengesQuery)
+
+    // Flatten challenges into participation items
+    const dashboardItems: DashboardItem[] = []
+    for (const challenge of challenges) {
+        if (challenge.participants.length > 0) {
+            for (const participant of challenge.participants) {
+                dashboardItems.push({
+                    challenge,
+                    participant,
+                    key: `${challenge.id}-${participant.id}`
+                })
+            }
+            continue
+        }
+
+        if (challenge.organizerId === session.user.id) {
+            dashboardItems.push({
+                challenge,
+                participant: null,
+                key: `${challenge.id}-organizer`
+            })
+        }
+    }
 
     const showApprovals = session.user.role === "ORGANIZER" || session.user.role === "ADMIN"
     const pendingApprovals = showApprovals ? await prisma.participant.findMany({
@@ -112,7 +323,7 @@ export default async function DashboardPage() {
                             className="inline-flex items-center gap-2 bg-yellow-500 text-neutral-950 px-6 py-3 rounded-xl font-bold hover:bg-yellow-400 transition-all shadow-lg shadow-yellow-500/10 active:scale-95"
                         >
                             <Plus className="h-5 w-5" />
-                            Create a Challenge
+                            Create Challenge
                         </Link>
                     )}
                 </div>
@@ -151,55 +362,97 @@ export default async function DashboardPage() {
                                 </div>
                             </section>
                         )}
-                        <section>
-                            <div className="flex items-center justify-between mb-6">
-                                <h3 className="text-xl font-bold flex items-center gap-2">
-                                    <Activity className="h-5 w-5 text-blue-500" />
-                                    Active Challenges
-                                </h3>
-                                <Link href="/challenges" className="text-sm text-neutral-500 hover:text-yellow-500 transition-colors font-medium">
-                                    More
+                    </div>
+
+                    {/* Sidebar Area */}
+                    <div className="space-y-8">
+                        {/* ADMIN role specific controls */}
+                        {session.user.role === 'ADMIN' && (
+                            <section className="p-8 rounded-3xl border border-red-500/20 bg-red-500/5 group hover:bg-red-500/10 transition-all">
+                                <div className="p-3 bg-red-500/10 rounded-xl w-fit mb-6">
+                                    <Shield className="h-6 w-6 text-red-500" />
+                                </div>
+                                <h3 className="text-xl font-bold text-red-500 mb-2">Admin Panel</h3>
+                                <p className="text-neutral-400 text-sm mb-6">System-wide user and challenge management.</p>
+                                <Link href="/admin" className="inline-flex items-center gap-2 bg-red-500 text-white px-6 py-2 rounded-xl font-bold hover:bg-red-400 transition-all shadow-lg shadow-red-500/10">
+                                    Controller
+                                    <Settings className="h-4 w-4" />
+                                </Link>
+                            </section>
+                        )}
+
+                        {/* Stats Summary could go here */}
+                    </div>
+
+                    <section className="lg:col-span-3">
+                        <div className="flex items-center justify-between mb-6">
+                            <h3 className="text-xl font-bold flex items-center gap-2">
+                                <Activity className="h-5 w-5 text-blue-500" />
+                                Active Challenges
+                            </h3>
+                            <Link href="/challenges" className="text-sm text-neutral-500 hover:text-yellow-500 transition-colors font-medium">
+                                More
+                            </Link>
+                        </div>
+
+                        {dashboardItems.length === 0 ? (
+                            <div className="p-12 rounded-3xl border border-dashed border-neutral-800 bg-neutral-900/40 flex flex-col items-center justify-center text-center">
+                                <Users className="h-12 w-12 text-neutral-700 mb-4" />
+                                <h4 className="text-lg font-bold mb-2">No active Challenge</h4>
+                                <p className="text-neutral-500 max-w-xs mb-6 text-sm">Join a public challenge or create one to start tracking your progress.</p>
+                                <Link href="/challenges" className="bg-neutral-800 text-white px-6 py-2 rounded-xl font-semibold hover:bg-neutral-700 transition-all">
+                                    Browse Gallery
                                 </Link>
                             </div>
-
-                            {challenges.length === 0 ? (
-                                <div className="p-12 rounded-3xl border border-dashed border-neutral-800 bg-neutral-900/40 flex flex-col items-center justify-center text-center">
-                                    <Users className="h-12 w-12 text-neutral-700 mb-4" />
-                                    <h4 className="text-lg font-bold mb-2">No active Challenge</h4>
-                                    <p className="text-neutral-500 max-w-xs mb-6 text-sm">Join a public challenge or create one to start tracking your progress.</p>
-                                    <Link href="/challenges" className="bg-neutral-800 text-white px-6 py-2 rounded-xl font-semibold hover:bg-neutral-700 transition-all">
-                                        Browse Gallery
-                                    </Link>
-                                </div>
-                            ) : (
-                                <div className="grid gap-6">
-                                    {challenges.map((challenge) => (
-                                        <div key={challenge.id} className="bg-neutral-900 border border-neutral-800 rounded-3xl p-6 hover:border-neutral-700 transition-all flex flex-col md:flex-row justify-between gap-6 group">
+                        ) : (
+                            <div className="grid gap-6">
+                                {dashboardItems.map((item) => {
+                                    const { challenge, participant, key } = item;
+                                    const useDateOnlyWeekMode = isMidnightUTC(challenge.startDate)
+                                    const timeZone = useDateOnlyWeekMode ? 'UTC' : challenge.timezone || 'UTC';
+                                    const { weekStartUtc, weekEndUtc, rangeLabel } = getCurrentChallengeWeekWindow(
+                                        challenge.startDate,
+                                        challenge.endDate,
+                                        timeZone,
+                                        new Date(),
+                                        useDateOnlyWeekMode
+                                    );
+                                    return (
+                                        <div key={key} className="bg-neutral-900 border border-neutral-800 rounded-3xl p-6 hover:border-neutral-700 transition-all flex flex-col md:flex-row justify-between gap-6 group">
                                             <div className="space-y-4 flex-1">
                                                 <div className="flex items-center justify-between">
-                                                    <h4 className="text-xl font-bold group-hover:text-yellow-500 transition-colors">{challenge.name}</h4>
+                                                    <div className="flex flex-col">
+                                                        <h4 className="text-xl font-bold group-hover:text-yellow-500 transition-colors uppercase">
+                                                            {challenge.name}
+                                                        </h4>
+                                                        {participant && (participant.displayName || participant.name) && (
+                                                            <span className="text-sm text-neutral-500 font-bold tracking-tight mt-0.5">
+                                                                Logging as: <span className="text-yellow-500/80">{participant.displayName || participant.name}</span>
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                     <div className="text-xs font-bold text-neutral-500 capitalize bg-neutral-950 px-3 py-1 rounded-full border border-neutral-800">
                                                         {challenge.status.toLowerCase()}
                                                     </div>
                                                 </div>
 
                                                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-                                                    {challenge.metrics.map(m => {
-                                                        const lastSnapshot = m.scoreSnapshots[0];
+                                                    {challenge.metrics.map((m) => {
+                                                        const participantSnapshots = m.scoreSnapshots.filter((snapshot) => snapshot.participantId === participant?.id);
+                                                        const lastSnapshot = participantSnapshots[0];
 
-                                                        // Calculate Current Challenge Week Range
-                                                        const today = new Date();
-                                                        const diffDays = Math.floor((today.getTime() - challenge.startDate.getTime()) / (1000 * 60 * 60 * 24));
-                                                        const weekNumber = Math.max(0, Math.floor(diffDays / 7));
-                                                        const weekStart = startOfDay(addDays(challenge.startDate, weekNumber * 7));
-                                                        const weekEnd = endOfDay(addDays(weekStart, 6));
-
-                                                        const weekLogs = m.activityLogs.filter(l =>
-                                                            l.date >= weekStart && l.date <= weekEnd
+                                                        const participantLogs = m.activityLogs.filter((log) => log.participantId === participant?.id);
+                                                        const weekLogs = participantLogs.filter((log) =>
+                                                            log.date >= weekStartUtc && log.date <= weekEndUtc
                                                         );
 
-                                                        const participant = challenge.participants[0];
-                                                        const { totalPoints: weekScore } = calculateScoreFromLogs(weekLogs, m, participant);
+                                                        const scoreParticipant = (participant || { userId: session.user.id }) as ScoreParticipantArg;
+                                                        const { totalPoints: weekScore } = calculateScoreFromLogs(
+                                                            weekLogs as ScoreLogsArg,
+                                                            m as ScoreMetricArg,
+                                                            scoreParticipant,
+                                                            timeZone
+                                                        );
                                                         const totalScore = lastSnapshot?.totalPoints || 0;
 
                                                         return (
@@ -208,7 +461,9 @@ export default async function DashboardPage() {
 
                                                                 <div className="flex items-center justify-between gap-2 border-t border-neutral-800/50 pt-3">
                                                                     <div className="flex flex-col">
-                                                                        <span className="text-[8px] text-neutral-600 font-black uppercase tracking-tighter">Week</span>
+                                                                        <span className="text-[8px] text-neutral-600 font-black uppercase tracking-tighter">
+                                                                            Week <span className="text-neutral-700/80 ml-0.5">({rangeLabel})</span>
+                                                                        </span>
                                                                         <span className="text-lg font-black text-neutral-100 tabular-nums">
                                                                             {weekScore}
                                                                             <span className="text-[10px] text-neutral-600 font-bold ml-0.5">pts</span>
@@ -239,21 +494,23 @@ export default async function DashboardPage() {
                                                         startDate={challenge.startDate}
                                                         endDate={challenge.endDate}
                                                         showPendingMessage={false}
-                                                        participants={challenge.participants.map(p => ({
-                                                            id: p.id,
-                                                            userId: p.userId,
-                                                            challengeId: p.challengeId,
-                                                            name: p.name,
-                                                            displayName: p.displayName,
-                                                            joinedAt: p.joinedAt,
-                                                            status: p.status
+                                                        initialParticipantId={participant?.id}
+                                                        participants={challenge.participants.map((challengeParticipant) => ({
+                                                            id: challengeParticipant.id,
+                                                            userId: challengeParticipant.userId,
+                                                            challengeId: challengeParticipant.challengeId,
+                                                            name: challengeParticipant.name,
+                                                            displayName: challengeParticipant.displayName,
+                                                            joinedAt: challengeParticipant.joinedAt,
+                                                            status: challengeParticipant.status
                                                         }))}
-                                                        metrics={challenge.metrics.map(m => ({
-                                                            id: m.id,
-                                                            name: m.name,
-                                                            unit: m.unit,
-                                                            qualifiers: m.qualifiers,
-                                                            inputType: m.inputType // Ensure inputType is passed
+                                                        metrics={challenge.metrics.map((metric) => ({
+                                                            id: metric.id,
+                                                            name: metric.name,
+                                                            unit: metric.unit,
+                                                            description: metric.description ?? undefined,
+                                                            qualifiers: metric.qualifiers,
+                                                            inputType: metric.inputType // Ensure inputType is passed
                                                         }))}
                                                     />
                                                 )}
@@ -276,31 +533,11 @@ export default async function DashboardPage() {
                                                 </div>
                                             </div>
                                         </div>
-                                    ))}
-                                </div>
-                            )}
-                        </section>
-                    </div>
-
-                    {/* Sidebar Area */}
-                    <div className="space-y-8">
-                        {/* ADMIN role specific controls */}
-                        {session.user.role === 'ADMIN' && (
-                            <section className="p-8 rounded-3xl border border-red-500/20 bg-red-500/5 group hover:bg-red-500/10 transition-all">
-                                <div className="p-3 bg-red-500/10 rounded-xl w-fit mb-6">
-                                    <Shield className="h-6 w-6 text-red-500" />
-                                </div>
-                                <h3 className="text-xl font-bold text-red-500 mb-2">Admin Panel</h3>
-                                <p className="text-neutral-400 text-sm mb-6">System-wide user and challenge management.</p>
-                                <Link href="/admin" className="inline-flex items-center gap-2 bg-red-500 text-white px-6 py-2 rounded-xl font-bold hover:bg-red-400 transition-all shadow-lg shadow-red-500/10">
-                                    Controller
-                                    <Settings className="h-4 w-4" />
-                                </Link>
-                            </section>
+                                    );
+                                })}
+                            </div>
                         )}
-
-                        {/* Stats Summary could go here */}
-                    </div>
+                    </section>
                 </div>
             </main >
         </div >

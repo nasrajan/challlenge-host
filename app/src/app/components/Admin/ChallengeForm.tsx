@@ -12,7 +12,7 @@ import {
     Users
 } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { memo, useCallback, useEffect, useMemo, useState } from "react"
+import { memo, useCallback, useMemo, useState } from "react"
 import {
     AggregationMethod,
     ScoringFrequency,
@@ -29,6 +29,26 @@ interface ScoringRule {
     qualifierValue?: string;
 }
 
+interface MetricQualifier {
+    id: string;
+    value: string;
+}
+
+interface ChallengeMetric {
+    id: string;
+    name: string;
+    description: string | null;
+    unit: string;
+    inputType: MetricInputType;
+    aggregationMethod: AggregationMethod;
+    scoringFrequency: ScoringFrequency;
+    maxPointsPerPeriod: number | null;
+    maxPointsTotal: number | null;
+    pointsPerUnit: number | null;
+    qualifiers: MetricQualifier[];
+    scoringRules: ScoringRule[];
+}
+
 interface Metric {
     id: string; // client-side only or DB id
     name: string;
@@ -40,7 +60,7 @@ interface Metric {
     maxPointsPerPeriod: number | null;
     maxPointsTotal: number | null;
     pointsPerUnit: number | null;
-    qualifiers: { id: string; value: string }[];
+    qualifiers: MetricQualifier[];
     scoringRules: ScoringRule[];
 }
 
@@ -57,7 +77,7 @@ interface ChallengeFormProps {
         allowMultiParticipants: boolean;
         maxParticipants: number | null;
         organizerId?: string;
-        metrics: any[];
+        metrics: ChallengeMetric[];
     };
     mode: 'CREATE' | 'EDIT';
     organizers?: { id: string; name: string | null; email: string | null }[];
@@ -68,11 +88,10 @@ export default function ChallengeForm({ initialData, mode, organizers, currentUs
     const router = useRouter()
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
-    const [lastAddedMetricId, setLastAddedMetricId] = useState<string | null>(null)
 
     // Map initial metrics if they exist
-    const defaultMetrics: Metric[] = useMemo(() => initialData?.metrics.map(m => ({
-        id: m.id || Math.random().toString(36).substr(2, 9),
+    const defaultMetrics: Metric[] = useMemo(() => initialData?.metrics.map((m, index) => ({
+        id: m.id || `metric-${index}`,
         name: m.name,
         description: m.description || "",
         unit: m.unit,
@@ -92,7 +111,7 @@ export default function ChallengeForm({ initialData, mode, organizers, currentUs
         }]
     })) || [
             {
-                id: Math.random().toString(36).substr(2, 9),
+                id: "metric-0",
                 name: "",
                 description: "",
                 unit: "",
@@ -140,7 +159,13 @@ export default function ChallengeForm({ initialData, mode, organizers, currentUs
                 }]
             }
         ])
-        setLastAddedMetricId(newId)
+        requestAnimationFrame(() => {
+            const el = document.getElementById(`metric-${newId}`)
+            if (!el) return
+            requestAnimationFrame(() => {
+                el.scrollIntoView({ behavior: "smooth", block: "start" })
+            })
+        })
     }, [])
 
     const removeMetric = useCallback((id: string) => {
@@ -150,17 +175,6 @@ export default function ChallengeForm({ initialData, mode, organizers, currentUs
     const updateMetric = useCallback((id: string, updates: Partial<Metric>) => {
         setMetrics((prev) => prev.map(m => m.id === id ? { ...m, ...updates } : m))
     }, [])
-
-    useEffect(() => {
-        if (!lastAddedMetricId) return
-        const el = document.getElementById(`metric-${lastAddedMetricId}`)
-        if (el) {
-            requestAnimationFrame(() => {
-                el.scrollIntoView({ behavior: "smooth", block: "start" })
-            })
-        }
-        setLastAddedMetricId(null)
-    }, [lastAddedMetricId, metrics])
 
     async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault()
@@ -325,7 +339,7 @@ export default function ChallengeForm({ initialData, mode, organizers, currentUs
                                 <select
                                     name="organizerId"
                                     defaultValue={initialData?.organizerId || ""}
-                                    className="bg-neutral-900 border border-neutral-700 rounded-xl px-4 py-2 text-sm text-neutral-100 focus:outline-none focus:ring-2 focus:ring-yellow-500/20"
+                                    className="bg-neutral-900 border border-neutral-700 rounded-xl px-4 py-2 text-sm text-neutral-100 focus:outline-none focus:ring-2 focus:ring-yellow-500/20 truncate pr-8"
                                     disabled={loading}
                                 >
                                     <option value="">Select an Organizer</option>

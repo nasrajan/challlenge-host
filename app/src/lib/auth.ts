@@ -1,4 +1,5 @@
 import { NextAuthOptions } from "next-auth";
+import type { Adapter } from "next-auth/adapters";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "@/lib/prisma";
 import CredentialsProvider from "next-auth/providers/credentials";
@@ -10,7 +11,7 @@ export function getRedirectUrlForRole(role: string): string {
 }
 
 export const authOptions: NextAuthOptions = {
-    adapter: PrismaAdapter(prisma) as any,
+    adapter: PrismaAdapter(prisma) as Adapter,
     session: {
         strategy: "jwt",
     },

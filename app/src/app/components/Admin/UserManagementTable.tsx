@@ -1,7 +1,8 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useState, useTransition, memo, useCallback } from "react"
 import { Trash2, Eye, Shield, User as UserIcon } from "lucide-react"
+import type { UserRole } from "@prisma/client"
 import { deleteUser } from "@/app/actions/admin"
 import UserRoleSelector from "@/app/admin/UserRoleSelector"
 import DateDisplay from "@/app/components/DateDisplay"
@@ -13,13 +14,68 @@ interface User {
     id: string
     name: string | null
     email: string | null
-    role: string
+    role: UserRole
     createdAt: Date
 }
 
 interface UserManagementTableProps {
     users: User[]
 }
+
+const UserRow = memo(({
+    user,
+    onSelect,
+    onDelete,
+    isDeleting
+}: {
+    user: User,
+    onSelect: (id: string, name: string) => void,
+    onDelete: (id: string, name: string) => void,
+    isDeleting: boolean
+}) => (
+    <tr className="hover:bg-neutral-800/40 transition-colors group">
+        <td className="px-4 py-4 sm:px-6">
+            <div className="flex flex-col">
+                <div className="font-bold text-neutral-200 group-hover:text-white transition-colors truncate max-w-[120px] sm:max-w-[200px]">
+                    {user.name || "Unknown User"}
+                </div>
+                <div className="text-[10px] sm:text-xs text-neutral-500 truncate max-w-[120px] sm:max-w-none">
+                    {user.email}
+                </div>
+            </div>
+        </td>
+        <td className="px-4 py-4 sm:px-6">
+            <div className="relative inline-flex items-center">
+                <UserRoleSelector userId={user.id} currentRole={user.role} />
+            </div>
+        </td>
+        <td className="px-6 py-4 text-neutral-500 hidden md:table-cell">
+            <DateDisplay date={user.createdAt} />
+        </td>
+        <td className="px-4 py-4 sm:px-6">
+            <div className="flex items-center justify-end gap-1 sm:gap-2">
+                <button
+                    onClick={() => onSelect(user.id, user.name || "User")}
+                    className="p-1.5 sm:p-2 bg-neutral-800 border border-neutral-700 text-neutral-400 hover:text-blue-400 hover:border-blue-500/30 rounded-lg sm:rounded-xl transition-all flex items-center gap-1 sm:gap-2 text-[10px] sm:text-xs font-bold"
+                    title="View Participations"
+                >
+                    <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                    <span className="hidden xs:inline">Details</span>
+                </button>
+                <button
+                    onClick={() => onDelete(user.id, user.name || "User")}
+                    disabled={isDeleting}
+                    className="p-1.5 sm:p-2 bg-neutral-800 border border-neutral-700 text-neutral-400 hover:text-red-500 hover:border-red-500/30 rounded-lg sm:rounded-xl transition-all disabled:opacity-50"
+                    title="Delete User"
+                >
+                    <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                </button>
+            </div>
+        </td>
+    </tr>
+))
+
+UserRow.displayName = "UserRow"
 
 export default function UserManagementTable({ users: initialUsers }: UserManagementTableProps) {
     const [users, setUsers] = useState(initialUsers)
@@ -28,9 +84,13 @@ export default function UserManagementTable({ users: initialUsers }: UserManagem
     const [successMessage, setSuccessMessage] = useState<string | null>(null)
     const [userToDelete, setUserToDelete] = useState<{ id: string, name: string } | null>(null)
 
-    const handleDeleteUser = (userId: string, userName: string) => {
+    const handleDeleteUser = useCallback((userId: string, userName: string) => {
         setUserToDelete({ id: userId, name: userName })
-    }
+    }, [])
+
+    const handleSelectUser = useCallback((userId: string, userName: string) => {
+        setSelectedUser({ id: userId, name: userName })
+    }, [])
 
     const confirmDelete = async () => {
         if (!userToDelete) return
@@ -67,46 +127,13 @@ export default function UserManagementTable({ users: initialUsers }: UserManagem
                     </thead>
                     <tbody className="divide-y divide-neutral-800 text-sm">
                         {users.map((user) => (
-                            <tr key={user.id} className="hover:bg-neutral-800/40 transition-colors group">
-                                <td className="px-4 py-4 sm:px-6">
-                                    <div className="flex flex-col">
-                                        <div className="font-bold text-neutral-200 group-hover:text-white transition-colors truncate max-w-[120px] sm:max-w-[200px]">
-                                            {user.name || "Unknown User"}
-                                        </div>
-                                        <div className="text-[10px] sm:text-xs text-neutral-500 truncate max-w-[120px] sm:max-w-none">
-                                            {user.email}
-                                        </div>
-                                    </div>
-                                </td>
-                                <td className="px-4 py-4 sm:px-6">
-                                    <div className="relative inline-flex items-center">
-                                        <UserRoleSelector userId={user.id} currentRole={user.role as any} />
-                                    </div>
-                                </td>
-                                <td className="px-6 py-4 text-neutral-500 hidden md:table-cell">
-                                    <DateDisplay date={user.createdAt} />
-                                </td>
-                                <td className="px-4 py-4 sm:px-6">
-                                    <div className="flex items-center justify-end gap-1 sm:gap-2">
-                                        <button
-                                            onClick={() => setSelectedUser({ id: user.id, name: user.name || "User" })}
-                                            className="p-1.5 sm:p-2 bg-neutral-800 border border-neutral-700 text-neutral-400 hover:text-blue-400 hover:border-blue-500/30 rounded-lg sm:rounded-xl transition-all flex items-center gap-1 sm:gap-2 text-[10px] sm:text-xs font-bold"
-                                            title="View Participations"
-                                        >
-                                            <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                                            <span className="hidden xs:inline">Details</span>
-                                        </button>
-                                        <button
-                                            onClick={() => handleDeleteUser(user.id, user.name || "User")}
-                                            disabled={isDeleting}
-                                            className="p-1.5 sm:p-2 bg-neutral-800 border border-neutral-700 text-neutral-400 hover:text-red-500 hover:border-red-500/30 rounded-lg sm:rounded-xl transition-all disabled:opacity-50"
-                                            title="Delete User"
-                                        >
-                                            <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
+                            <UserRow
+                                key={user.id}
+                                user={user}
+                                onSelect={handleSelectUser}
+                                onDelete={handleDeleteUser}
+                                isDeleting={isDeleting}
+                            />
                         ))}
                     </tbody>
                 </table>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from "react"
+import { useState, useRef, memo } from "react"
 import { ChevronDown, ChevronUp, FileText, Loader2 } from "lucide-react"
 import jsPDF from "jspdf"
 import html2canvas from "html2canvas"
@@ -10,7 +10,7 @@ interface ExpandableDescriptionProps {
     description: string
 }
 
-export default function ExpandableDescription({ title, description }: ExpandableDescriptionProps) {
+function ExpandableDescription({ title, description }: ExpandableDescriptionProps) {
     const [isExpanded, setIsExpanded] = useState(false)
     const [loadingPDF, setLoadingPDF] = useState(false)
     const descriptionRef = useRef<HTMLDivElement>(null)
@@ -21,22 +21,17 @@ export default function ExpandableDescription({ title, description }: Expandable
         setLoadingPDF(true)
 
         try {
-            // STRATEGY: Create a "Clean Clone" without any Tailwind v4 classes 
-            // to avoid the "unsupported color function lab/oklch" crashing html2canvas.
-
-            // 1. Create a hidden container for the clone
             const container = document.createElement('div')
             container.style.position = 'absolute'
             container.style.left = '-9999px'
             container.style.top = '0'
-            container.style.width = '800px' // Fixed width for consistent PDF layout
+            container.style.width = '800px'
             container.style.padding = '40px'
             container.style.backgroundColor = '#171717'
             container.style.color = '#ffffff'
             container.style.fontFamily = 'Arial, sans-serif'
             container.style.borderRadius = '24px'
 
-            // 2. Add Content
             const titleEl = document.createElement('h1')
             titleEl.innerText = title
             titleEl.style.fontSize = '32px'
@@ -53,18 +48,12 @@ export default function ExpandableDescription({ title, description }: Expandable
             bodyEl.style.whiteSpace = 'pre-wrap'
             bodyEl.style.wordBreak = 'break-word'
             bodyEl.style.color = '#a3a3a3'
-
-            // Detect if text is Arabic for RTL support
-            const isArabic = /[\u0600-\u06FF]/.test(description)
-            if (isArabic) {
-                bodyEl.dir = 'rtl'
-                bodyEl.style.textAlign = 'right'
-            }
+            bodyEl.dir = 'ltr'
+            bodyEl.style.textAlign = 'left'
 
             container.appendChild(bodyEl)
             document.body.appendChild(container)
 
-            // 3. Capture
             const canvas = await html2canvas(container, {
                 scale: 2,
                 backgroundColor: '#171717',
@@ -72,28 +61,39 @@ export default function ExpandableDescription({ title, description }: Expandable
                 logging: false,
             })
 
-            // 4. Cleanup
             document.body.removeChild(container)
 
-            // 5. Generate PDF
             const imgData = canvas.toDataURL("image/png")
             const pdf = new jsPDF({
                 orientation: 'p',
-                unit: 'px',
-                format: [canvas.width / 2, canvas.height / 2]
+                unit: 'mm',
+                format: 'a4'
             })
 
-            const pdfWidth = pdf.internal.pageSize.getWidth()
-            const pdfHeight = pdf.internal.pageSize.getHeight()
+            const pageWidth = pdf.internal.pageSize.getWidth()
+            const pageHeight = pdf.internal.pageSize.getHeight()
+            const margin = 8
+            const contentWidth = pageWidth - margin * 2
+            const contentHeight = pageHeight - margin * 2
+            const imageHeight = (canvas.height * contentWidth) / canvas.width
 
-            pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight)
+            let heightLeft = imageHeight
+            let position = 0
+
+            pdf.addImage(imgData, "PNG", margin, margin + position, contentWidth, imageHeight)
+            heightLeft -= contentHeight
+
+            while (heightLeft > 0) {
+                position -= contentHeight
+                pdf.addPage()
+                pdf.addImage(imgData, "PNG", margin, margin + position, contentWidth, imageHeight)
+                heightLeft -= contentHeight
+            }
             pdf.save(`${title.replace(/\s+/g, '_')}_description.pdf`)
 
         } catch (err) {
             console.error("PDF generation failed:", err)
-            alert("Failed to generate PDF. We'll try a basic version instead.")
-
-            // Final fallback: Very basic jsPDF (might have encoding issues with Arabic)
+            alert("Failed to generate PDF. Falling back to basic version.")
             try {
                 const doc = new jsPDF()
                 doc.setFontSize(20)
@@ -163,3 +163,5 @@ export default function ExpandableDescription({ title, description }: Expandable
         </div>
     )
 }
+
+export default memo(ExpandableDescription)

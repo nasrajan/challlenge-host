@@ -15,8 +15,18 @@ interface UserParticipationsModalProps {
     onClose: () => void
 }
 
+interface Participation {
+    id: string
+    name: string
+    status: string
+    joinedAt: Date
+    challenge: {
+        name: string
+    }
+}
+
 export default function UserParticipationsModal({ userId, userName, joinedAt, isOpen, onClose }: UserParticipationsModalProps) {
-    const [participations, setParticipations] = useState<any[]>([])
+    const [participations, setParticipations] = useState<Participation[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
     const [successMessage, setSuccessMessage] = useState<string | null>(null)

@@ -1,14 +1,11 @@
 import { prisma } from "./prisma";
 import {
-    AggregationMethod,
+    Participant,
     ScoringFrequency,
-    ComparisonType,
-    ChallengeMetric,
-    MetricQualifier,
     ScoringRule,
     ActivityLog
 } from "@prisma/client";
-import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval, format } from "date-fns";
+import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, format } from "date-fns";
 import { toZonedTime, fromZonedTime } from "date-fns-tz";
 
 export interface Period {
@@ -89,7 +86,19 @@ export async function calculateParticipantScoreForMetric(
     return totalPoints;
 }
 
-export function calculateScoreFromLogs(logs: ActivityLog[], metric: any, participant: any, timeZone: string = "UTC") {
+type ScoreMetric = {
+    id: string
+    challengeId: string
+    aggregationMethod: "COUNT" | "SUM" | "MAX" | "MIN" | "AVERAGE"
+    scoringFrequency: ScoringFrequency
+    pointsPerUnit: number | null
+    maxPointsPerPeriod: number | null
+    maxPointsTotal: number | null
+    scoringRules: Pick<ScoringRule, "qualifierId" | "comparisonType" | "minValue" | "maxValue" | "points">[]
+}
+type ScoreParticipant = Pick<Participant, "id" | "userId" | "name" | "displayName">
+
+export function calculateScoreFromLogs(logs: ActivityLog[], metric: ScoreMetric, participant: ScoreParticipant, timeZone: string = "UTC") {
     // Filter logs to only keep the latest entry per (Date, Qualifier)
     const latestLogsMap: Map<string, ActivityLog> = new Map();
     logs.forEach(log => {
@@ -160,13 +169,13 @@ export function calculateScoreFromLogs(logs: ActivityLog[], metric: any, partici
         } else {
             // Apply rules for each qualifier group
             qualifierGroups.forEach((aggregatedVal, qualifierId) => {
-                const relevantRules = metric.scoringRules.filter((rule: any) => rule.qualifierId === qualifierId);
+                const relevantRules = metric.scoringRules.filter((rule) => rule.qualifierId === qualifierId);
 
                 const rulesToEvaluate = relevantRules.length > 0
                     ? relevantRules
-                    : metric.scoringRules.filter((rule: any) => rule.qualifierId === null);
+                    : metric.scoringRules.filter((rule) => rule.qualifierId === null);
 
-                rulesToEvaluate.forEach((rule: any) => {
+                rulesToEvaluate.forEach((rule) => {
                     let matches = false;
                     switch (rule.comparisonType) {
                         case "RANGE":

@@ -169,61 +169,50 @@ export default function ActivityLogger({
         setMetricValues(prev => ({ ...prev, [id]: val as string }))
     }, [])
 
-    useEffect(() => {
-        if (isOpen) {
-            setSelectedDate(getInitialLogDate(startDate, endDate))
-        }
-    }, [isOpen, startDate, endDate])
-
-    useEffect(() => {
+    const loadLogs = useCallback(async () => {
         if (!isOpen) return
-        let active = true
-        setLoadingLogs(true)
-        setError(null)
+        try {
+            setLoadingLogs(true)
+            setError(null)
 
-        getActivityLogsForDate(challengeId, selectedDate, selectedParticipantId)
-            .then((logs) => {
-                if (!active) return
-                const nextMetricValues: Record<string, string> = {}
-                const nextCheckboxValues: Record<string, boolean> = {}
-                const nextTextValues: Record<string, string> = {}
-                let nextNotes = ""
+            const logs = await getActivityLogsForDate(challengeId, selectedDate, selectedParticipantId)
 
-                logs.forEach((log) => {
-                    const metric = metrics.find((m) => m.id === log.metricId)
-                    if (!metric) return
+            const nextMetricValues: Record<string, string> = {}
+            const nextCheckboxValues: Record<string, boolean> = {}
+            const nextTextValues: Record<string, string> = {}
+            let nextNotes = ""
 
-                    if (metric.inputType === "CHECKBOX") {
-                        nextCheckboxValues[metric.id] = log.value > 0
-                    } else if (metric.inputType === "TEXT") {
-                        nextTextValues[metric.id] = log.notes || ""
-                    } else {
-                        nextMetricValues[metric.id] = String(log.value)
-                    }
+            logs.forEach((log) => {
+                const metric = metrics.find((m) => m.id === log.metricId)
+                if (!metric) return
 
-                    if (!nextNotes && log.notes && metric.inputType !== "TEXT") {
-                        nextNotes = log.notes
-                    }
-                })
+                if (metric.inputType === "CHECKBOX") {
+                    nextCheckboxValues[metric.id] = log.value > 0
+                } else if (metric.inputType === "TEXT") {
+                    nextTextValues[metric.id] = log.notes || ""
+                } else {
+                    nextMetricValues[metric.id] = String(log.value)
+                }
 
-                setMetricValues(nextMetricValues)
-                setCheckboxValues(nextCheckboxValues)
-                setTextValues(nextTextValues)
-                setNotesValue(nextNotes)
-            })
-            .catch(() => {
-                if (active) {
-                    setError("Failed to load logs for this date.")
+                if (!nextNotes && log.notes && metric.inputType !== "TEXT") {
+                    nextNotes = log.notes
                 }
             })
-            .finally(() => {
-                if (active) setLoadingLogs(false)
-            })
 
-        return () => {
-            active = false
+            setMetricValues(nextMetricValues)
+            setCheckboxValues(nextCheckboxValues)
+            setTextValues(nextTextValues)
+            setNotesValue(nextNotes)
+        } catch {
+            setError("Failed to load logs for this date.")
+        } finally {
+            setLoadingLogs(false)
         }
-    }, [challengeId, selectedDate, isOpen, metrics, selectedParticipantId])
+    }, [challengeId, isOpen, metrics, selectedDate, selectedParticipantId])
+
+    useEffect(() => {
+        void loadLogs()
+    }, [loadLogs])
 
     async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault()
@@ -309,7 +298,10 @@ export default function ActivityLogger({
         if (approvedParticipants.length > 0) {
             return (
                 <button
-                    onClick={() => setIsOpen(true)}
+                    onClick={() => {
+                        setSelectedDate(getInitialLogDate(startDate, endDate))
+                        setIsOpen(true)
+                    }}
                     className="flex items-center gap-2 bg-yellow-500 hover:bg-yellow-400 text-neutral-950 px-6 py-3 rounded-2xl transition-all text-sm font-bold shadow-xl shadow-yellow-500/20 active:scale-95"
                 >
                     <Plus className="h-4 w-4" />

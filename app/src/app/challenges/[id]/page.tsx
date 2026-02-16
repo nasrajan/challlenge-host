@@ -203,12 +203,12 @@ export default async function ChallengeDetailPage({
                 </div >
             </div >
 
-            <main className="container mx-auto px-3 py-16 max-w-6xl grid lg:grid-cols-3 gap-16">
+            <main className={`container mx-auto px-3 py-16 max-w-6xl grid ${challenge.showLeaderboard ? "lg:grid-cols-3" : "lg:grid-cols-1"} gap-16`}>
                 {/* Left Column: Metrics & Rules */}
                 <div className="lg:col-span-1 space-y-12">
                     <section>
                         <h2 className="text-sm font-bold text-neutral-500 mb-8 border-l-2 border-yellow-500 pl-4">Scoring Infrastructure</h2>
-                        <div className=" space-y-6">
+                        <div className={challenge.showLeaderboard ? "space-y-6" : "grid gap-6 lg:grid-cols-2"}>
                             {challenge.metrics.map((m) => (
                                 <div key={m.id} className="bg-neutral-900/50 border border-neutral-800 rounded-3xl p-3 hover:bg-neutral-900 transition-all">
                                     <div className="flex items-center justify-between mb-2">

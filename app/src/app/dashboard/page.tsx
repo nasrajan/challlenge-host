@@ -339,159 +339,6 @@ export default async function DashboardPage() {
                                 </div>
                             </section>
                         )}
-                        <section>
-                            <div className="flex items-center justify-between mb-6">
-                                <h3 className="text-xl font-bold flex items-center gap-2">
-                                    <Activity className="h-5 w-5 text-blue-500" />
-                                    Active Challenges
-                                </h3>
-                                <Link href="/challenges" className="text-sm text-neutral-500 hover:text-yellow-500 transition-colors font-medium">
-                                    More
-                                </Link>
-                            </div>
-
-                            {dashboardItems.length === 0 ? (
-                                <div className="p-12 rounded-3xl border border-dashed border-neutral-800 bg-neutral-900/40 flex flex-col items-center justify-center text-center">
-                                    <Users className="h-12 w-12 text-neutral-700 mb-4" />
-                                    <h4 className="text-lg font-bold mb-2">No active Challenge</h4>
-                                    <p className="text-neutral-500 max-w-xs mb-6 text-sm">Join a public challenge or create one to start tracking your progress.</p>
-                                    <Link href="/challenges" className="bg-neutral-800 text-white px-6 py-2 rounded-xl font-semibold hover:bg-neutral-700 transition-all">
-                                        Browse Gallery
-                                    </Link>
-                                </div>
-                            ) : (
-                                <div className="grid gap-6">
-                                    {dashboardItems.map((item) => {
-                                        const { challenge, participant, key } = item;
-                                        const timeZone = isMidnightUTC(challenge.startDate) ? 'UTC' : challenge.timezone || 'UTC';
-                                        const { weekStartUtc, weekEndUtc } = getCurrentChallengeWeekWindow(
-                                            challenge.startDate,
-                                            challenge.endDate,
-                                            timeZone
-                                        );
-                                        return (
-                                            <div key={key} className="bg-neutral-900 border border-neutral-800 rounded-3xl p-6 hover:border-neutral-700 transition-all flex flex-col md:flex-row justify-between gap-6 group">
-                                                <div className="space-y-4 flex-1">
-                                                    <div className="flex items-center justify-between">
-                                                        <div className="flex flex-col">
-                                                            <h4 className="text-xl font-bold group-hover:text-yellow-500 transition-colors uppercase">
-                                                                {challenge.name}
-                                                            </h4>
-                                                            {participant && (participant.displayName || participant.name) && (
-                                                                <span className="text-sm text-neutral-500 font-bold tracking-tight mt-0.5">
-                                                                    Logging as: <span className="text-yellow-500/80">{participant.displayName || participant.name}</span>
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                        <div className="text-xs font-bold text-neutral-500 capitalize bg-neutral-950 px-3 py-1 rounded-full border border-neutral-800">
-                                                            {challenge.status.toLowerCase()}
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-                                                        {challenge.metrics.map((m) => {
-                                                            const participantSnapshots = m.scoreSnapshots.filter((snapshot) => snapshot.participantId === participant?.id);
-                                                            const lastSnapshot = participantSnapshots[0];
-
-                                                            const participantLogs = m.activityLogs.filter((log) => log.participantId === participant?.id);
-                                                            const weekLogs = participantLogs.filter((log) =>
-                                                                log.date >= weekStartUtc && log.date <= weekEndUtc
-                                                            );
-
-                                                            const scoreParticipant = (participant || { userId: session.user.id }) as ScoreParticipantArg;
-                                                            const { totalPoints: weekScore } = calculateScoreFromLogs(
-                                                                weekLogs as ScoreLogsArg,
-                                                                m as ScoreMetricArg,
-                                                                scoreParticipant,
-                                                                timeZone
-                                                            );
-                                                            const totalScore = lastSnapshot?.totalPoints || 0;
-
-                                                            const rangeLabel = `${formatInTimeZone(weekStartUtc, timeZone, 'MMM d')} - ${formatInTimeZone(weekEndUtc, timeZone, 'MMM d')}`;
-
-                                                            return (
-                                                                <div key={m.id} className="bg-neutral-950/40 rounded-2xl p-3 border border-neutral-800 hover:border-neutral-700/50 transition-all flex flex-col justify-between gap-3">
-                                                                    <div className="text-[10px] sm:text-[11px] font-black text-neutral-500 uppercase tracking-widest truncate" title={m.name}>{m.name}</div>
-
-                                                                    <div className="flex items-center justify-between gap-2 border-t border-neutral-800/50 pt-3">
-                                                                        <div className="flex flex-col">
-                                                                            <span className="text-[8px] text-neutral-600 font-black uppercase tracking-tighter">
-                                                                                Week <span className="text-neutral-700/80 ml-0.5">({rangeLabel})</span>
-                                                                            </span>
-                                                                            <span className="text-lg font-black text-neutral-100 tabular-nums">
-                                                                                {weekScore}
-                                                                                <span className="text-[10px] text-neutral-600 font-bold ml-0.5">pts</span>
-                                                                            </span>
-                                                                        </div>
-
-                                                                        <div className="w-px h-6 bg-neutral-800/80" />
-
-                                                                        <div className="flex flex-col text-right">
-                                                                            <span className="text-[8px] text-neutral-600 font-black uppercase tracking-tighter">Total</span>
-                                                                            <span className="text-lg font-black text-yellow-500 tabular-nums">
-                                                                                {totalScore}
-                                                                                <span className="text-[10px] text-yellow-600/50 font-bold ml-0.5">pts</span>
-                                                                            </span>
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-                                                            )
-                                                        })}
-                                                    </div>
-                                                </div>
-
-                                                <div className="flex flex-col gap-3 justify-center md:items-end">
-                                                    {challenge.participants.length > 0 && (
-                                                        <ActivityLogger
-                                                            challengeId={challenge.id}
-                                                            challengeName={challenge.name}
-                                                            startDate={challenge.startDate}
-                                                            endDate={challenge.endDate}
-                                                            showPendingMessage={false}
-                                                            initialParticipantId={participant?.id}
-                                                            participants={challenge.participants.map((challengeParticipant) => ({
-                                                                id: challengeParticipant.id,
-                                                                userId: challengeParticipant.userId,
-                                                                challengeId: challengeParticipant.challengeId,
-                                                                name: challengeParticipant.name,
-                                                                displayName: challengeParticipant.displayName,
-                                                                joinedAt: challengeParticipant.joinedAt,
-                                                                status: challengeParticipant.status
-                                                            }))}
-                                                            metrics={challenge.metrics.map((metric) => ({
-                                                                id: metric.id,
-                                                                name: metric.name,
-                                                                unit: metric.unit,
-                                                                description: metric.description ?? undefined,
-                                                                qualifiers: metric.qualifiers,
-                                                                inputType: metric.inputType // Ensure inputType is passed
-                                                            }))}
-                                                        />
-                                                    )}
-                                                    <div className="flex items-center gap-3">
-                                                        {challenge.organizerId === session.user.id && (
-                                                            <Link
-                                                                href={`/admin/challenges/${challenge.id}/edit`}
-                                                                className="text-xs font-bold text-neutral-500 hover:text-yellow-500 flex items-center gap-1 transition-colors px-2"
-                                                            >
-                                                                <Edit2 className="h-3 w-3" />
-                                                                Edit
-                                                            </Link>
-                                                        )}
-                                                        <Link
-                                                            href={`/challenges/${challenge.id}`}
-                                                            className="text-xs font-bold text-neutral-500 hover:text-white flex items-center gap-1 transition-colors px-2"
-                                                        >
-                                                            View Details <ChevronRight className="h-3 w-3" />
-                                                        </Link>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            )}
-                        </section>
                     </div>
 
                     {/* Sidebar Area */}
@@ -513,6 +360,160 @@ export default async function DashboardPage() {
 
                         {/* Stats Summary could go here */}
                     </div>
+
+                    <section className="lg:col-span-3">
+                        <div className="flex items-center justify-between mb-6">
+                            <h3 className="text-xl font-bold flex items-center gap-2">
+                                <Activity className="h-5 w-5 text-blue-500" />
+                                Active Challenges
+                            </h3>
+                            <Link href="/challenges" className="text-sm text-neutral-500 hover:text-yellow-500 transition-colors font-medium">
+                                More
+                            </Link>
+                        </div>
+
+                        {dashboardItems.length === 0 ? (
+                            <div className="p-12 rounded-3xl border border-dashed border-neutral-800 bg-neutral-900/40 flex flex-col items-center justify-center text-center">
+                                <Users className="h-12 w-12 text-neutral-700 mb-4" />
+                                <h4 className="text-lg font-bold mb-2">No active Challenge</h4>
+                                <p className="text-neutral-500 max-w-xs mb-6 text-sm">Join a public challenge or create one to start tracking your progress.</p>
+                                <Link href="/challenges" className="bg-neutral-800 text-white px-6 py-2 rounded-xl font-semibold hover:bg-neutral-700 transition-all">
+                                    Browse Gallery
+                                </Link>
+                            </div>
+                        ) : (
+                            <div className="grid gap-6">
+                                {dashboardItems.map((item) => {
+                                    const { challenge, participant, key } = item;
+                                    const timeZone = isMidnightUTC(challenge.startDate) ? 'UTC' : challenge.timezone || 'UTC';
+                                    const { weekStartUtc, weekEndUtc } = getCurrentChallengeWeekWindow(
+                                        challenge.startDate,
+                                        challenge.endDate,
+                                        timeZone
+                                    );
+                                    return (
+                                        <div key={key} className="bg-neutral-900 border border-neutral-800 rounded-3xl p-6 hover:border-neutral-700 transition-all flex flex-col md:flex-row justify-between gap-6 group">
+                                            <div className="space-y-4 flex-1">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex flex-col">
+                                                        <h4 className="text-xl font-bold group-hover:text-yellow-500 transition-colors uppercase">
+                                                            {challenge.name}
+                                                        </h4>
+                                                        {participant && (participant.displayName || participant.name) && (
+                                                            <span className="text-sm text-neutral-500 font-bold tracking-tight mt-0.5">
+                                                                Logging as: <span className="text-yellow-500/80">{participant.displayName || participant.name}</span>
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <div className="text-xs font-bold text-neutral-500 capitalize bg-neutral-950 px-3 py-1 rounded-full border border-neutral-800">
+                                                        {challenge.status.toLowerCase()}
+                                                    </div>
+                                                </div>
+
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                                                    {challenge.metrics.map((m) => {
+                                                        const participantSnapshots = m.scoreSnapshots.filter((snapshot) => snapshot.participantId === participant?.id);
+                                                        const lastSnapshot = participantSnapshots[0];
+
+                                                        const participantLogs = m.activityLogs.filter((log) => log.participantId === participant?.id);
+                                                        const weekLogs = participantLogs.filter((log) =>
+                                                            log.date >= weekStartUtc && log.date <= weekEndUtc
+                                                        );
+
+                                                        const scoreParticipant = (participant || { userId: session.user.id }) as ScoreParticipantArg;
+                                                        const { totalPoints: weekScore } = calculateScoreFromLogs(
+                                                            weekLogs as ScoreLogsArg,
+                                                            m as ScoreMetricArg,
+                                                            scoreParticipant,
+                                                            timeZone
+                                                        );
+                                                        const totalScore = lastSnapshot?.totalPoints || 0;
+
+                                                        const rangeLabel = `${formatInTimeZone(weekStartUtc, timeZone, 'MMM d')} - ${formatInTimeZone(weekEndUtc, timeZone, 'MMM d')}`;
+
+                                                        return (
+                                                            <div key={m.id} className="bg-neutral-950/40 rounded-2xl p-3 border border-neutral-800 hover:border-neutral-700/50 transition-all flex flex-col justify-between gap-3">
+                                                                <div className="text-[10px] sm:text-[11px] font-black text-neutral-500 uppercase tracking-widest truncate" title={m.name}>{m.name}</div>
+
+                                                                <div className="flex items-center justify-between gap-2 border-t border-neutral-800/50 pt-3">
+                                                                    <div className="flex flex-col">
+                                                                        <span className="text-[8px] text-neutral-600 font-black uppercase tracking-tighter">
+                                                                            Week <span className="text-neutral-700/80 ml-0.5">({rangeLabel})</span>
+                                                                        </span>
+                                                                        <span className="text-lg font-black text-neutral-100 tabular-nums">
+                                                                            {weekScore}
+                                                                            <span className="text-[10px] text-neutral-600 font-bold ml-0.5">pts</span>
+                                                                        </span>
+                                                                    </div>
+
+                                                                    <div className="w-px h-6 bg-neutral-800/80" />
+
+                                                                    <div className="flex flex-col text-right">
+                                                                        <span className="text-[8px] text-neutral-600 font-black uppercase tracking-tighter">Total</span>
+                                                                        <span className="text-lg font-black text-yellow-500 tabular-nums">
+                                                                            {totalScore}
+                                                                            <span className="text-[10px] text-yellow-600/50 font-bold ml-0.5">pts</span>
+                                                                        </span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        )
+                                                    })}
+                                                </div>
+                                            </div>
+
+                                            <div className="flex flex-col gap-3 justify-center md:items-end">
+                                                {challenge.participants.length > 0 && (
+                                                    <ActivityLogger
+                                                        challengeId={challenge.id}
+                                                        challengeName={challenge.name}
+                                                        startDate={challenge.startDate}
+                                                        endDate={challenge.endDate}
+                                                        showPendingMessage={false}
+                                                        initialParticipantId={participant?.id}
+                                                        participants={challenge.participants.map((challengeParticipant) => ({
+                                                            id: challengeParticipant.id,
+                                                            userId: challengeParticipant.userId,
+                                                            challengeId: challengeParticipant.challengeId,
+                                                            name: challengeParticipant.name,
+                                                            displayName: challengeParticipant.displayName,
+                                                            joinedAt: challengeParticipant.joinedAt,
+                                                            status: challengeParticipant.status
+                                                        }))}
+                                                        metrics={challenge.metrics.map((metric) => ({
+                                                            id: metric.id,
+                                                            name: metric.name,
+                                                            unit: metric.unit,
+                                                            description: metric.description ?? undefined,
+                                                            qualifiers: metric.qualifiers,
+                                                            inputType: metric.inputType // Ensure inputType is passed
+                                                        }))}
+                                                    />
+                                                )}
+                                                <div className="flex items-center gap-3">
+                                                    {challenge.organizerId === session.user.id && (
+                                                        <Link
+                                                            href={`/admin/challenges/${challenge.id}/edit`}
+                                                            className="text-xs font-bold text-neutral-500 hover:text-yellow-500 flex items-center gap-1 transition-colors px-2"
+                                                        >
+                                                            <Edit2 className="h-3 w-3" />
+                                                            Edit
+                                                        </Link>
+                                                    )}
+                                                    <Link
+                                                        href={`/challenges/${challenge.id}`}
+                                                        className="text-xs font-bold text-neutral-500 hover:text-white flex items-center gap-1 transition-colors px-2"
+                                                    >
+                                                        View Details <ChevronRight className="h-3 w-3" />
+                                                    </Link>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </section>
                 </div>
             </main >
         </div >

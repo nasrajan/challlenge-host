@@ -10,6 +10,7 @@ import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 import { recalculateParticipantChallengeScore, calculateParticipantScoreForMetric } from "@/lib/scoring"
 import { parseAsPST } from "@/lib/dateUtils"
+import { startOfDay, endOfDay } from "date-fns"
 
 export async function syncChallengeStatuses(now: Date = new Date()) {
     await prisma.$transaction([
@@ -203,9 +204,9 @@ export async function getActivityLogsForDate(challengeId: string, logDate: strin
     const session = await getServerSession(authOptions)
     if (!session) throw new Error("Unauthorized")
 
-    const dayStart = new Date(logDate)
-    const dayEnd = new Date(dayStart)
-    dayEnd.setDate(dayStart.getDate() + 1)
+    const date = parseAsPST(logDate)
+    const dayStart = startOfDay(date)
+    const dayEnd = endOfDay(date)
 
     return prisma.activityLog.findMany({
         where: {
@@ -214,7 +215,7 @@ export async function getActivityLogsForDate(challengeId: string, logDate: strin
             ...(participantId ? { participantId } : {}),
             date: {
                 gte: dayStart,
-                lt: dayEnd
+                lte: dayEnd
             }
         },
         select: {

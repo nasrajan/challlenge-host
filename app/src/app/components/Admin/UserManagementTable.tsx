@@ -2,6 +2,7 @@
 
 import { useState, useTransition, memo, useCallback } from "react"
 import { Trash2, Eye, Shield, User as UserIcon } from "lucide-react"
+import type { UserRole } from "@prisma/client"
 import { deleteUser } from "@/app/actions/admin"
 import UserRoleSelector from "@/app/admin/UserRoleSelector"
 import DateDisplay from "@/app/components/DateDisplay"
@@ -13,7 +14,7 @@ interface User {
     id: string
     name: string | null
     email: string | null
-    role: string
+    role: UserRole
     createdAt: Date
 }
 
@@ -45,7 +46,7 @@ const UserRow = memo(({
         </td>
         <td className="px-4 py-4 sm:px-6">
             <div className="relative inline-flex items-center">
-                <UserRoleSelector userId={user.id} currentRole={user.role as any} />
+                <UserRoleSelector userId={user.id} currentRole={user.role} />
             </div>
         </td>
         <td className="px-6 py-4 text-neutral-500 hidden md:table-cell">

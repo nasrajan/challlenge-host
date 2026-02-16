@@ -195,8 +195,7 @@ export default async function DashboardPage() {
                 select: {
                     id: true,
                     name: true,
-                    // Fix: description exists on ChallengeMetric
-                    // description field removed as it does not exist in ChallengeMetricSelect
+                    description: true,
                     unit: true,
                     inputType: true,
                     aggregationMethod: true,

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma"
+import type { Prisma } from "@prisma/client"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import Link from "next/link"
@@ -12,19 +13,37 @@ import {
     CheckCircle2,
     User as UserIcon,
     Crown,
-    LayoutDashboard,
 } from "lucide-react"
 import JoinChallengeModal from "@/app/components/JoinChallengeModal"
-import ActivityLogger from "@/app/components/ActivityLogger"
+import ActivityLogger from "@/app/components/ActivityLoggerClient"
 import DateDisplay from "@/app/components/DateDisplay"
 
 import ExpandableDescription from "@/app/components/ExpandableDescription"
 
 import { getChallengeLeaderboard } from "@/lib/scoring"
 import WeekSelector from "@/app/components/WeekSelector"
-import { addDays, format, startOfDay, endOfDay } from "date-fns"
+import { addDays, format, endOfDay } from "date-fns"
 import { toZonedTime, fromZonedTime } from "date-fns-tz"
 import { isMidnightUTC } from "@/lib/dateUtils"
+
+type ChallengeWithRelations = Prisma.ChallengeGetPayload<{
+    include: {
+        metrics: {
+            include: {
+                scoringRules: true
+                qualifiers: true
+            }
+        }
+        participants: {
+            include: {
+                user: true
+            }
+        }
+        _count: {
+            select: { participants: true }
+        }
+    }
+}>
 
 export default async function ChallengeDetailPage({
     params,
@@ -56,11 +75,11 @@ export default async function ChallengeDetailPage({
                 select: { participants: true }
             }
         }
-    })
+    }) as ChallengeWithRelations | null
 
     if (!challenge) notFound()
 
-    const isParticipant = !!challenge.participants.find(p => p.userId === session?.user?.id)
+    const isParticipant = !!challenge.participants.find((p: { userId: string }) => p.userId === session?.user?.id);
 
     // Calculate Weeks
     const weeks = []
@@ -150,8 +169,8 @@ export default async function ChallengeDetailPage({
                                     startDate={challenge.startDate}
                                     endDate={challenge.endDate}
                                     participants={challenge.participants
-                                        .filter(p => p.userId === session?.user?.id)
-                                        .map(p => ({
+                                        .filter((p) => p.userId === session?.user?.id)
+                                        .map((p) => ({
                                             id: p.id,
                                             userId: p.userId,
                                             challengeId: p.challengeId,
@@ -160,7 +179,7 @@ export default async function ChallengeDetailPage({
                                             joinedAt: p.joinedAt,
                                             status: p.status
                                         }))}
-                                    metrics={challenge.metrics.map(m => ({
+                                    metrics={challenge.metrics.map((m) => ({
                                         id: m.id,
                                         name: m.name,
                                         unit: m.unit,
@@ -190,7 +209,7 @@ export default async function ChallengeDetailPage({
                     <section>
                         <h2 className="text-sm font-bold text-neutral-500 mb-8 border-l-2 border-yellow-500 pl-4">Scoring Infrastructure</h2>
                         <div className=" space-y-6">
-                            {challenge.metrics.map(m => (
+                            {challenge.metrics.map((m) => (
                                 <div key={m.id} className="bg-neutral-900/50 border border-neutral-800 rounded-3xl p-3 hover:bg-neutral-900 transition-all">
                                     <div className="flex items-center justify-between mb-2">
                                         <h4 className="text-lg font-bold text-white">{m.name}</h4>
@@ -200,7 +219,7 @@ export default async function ChallengeDetailPage({
                                         <p className="text-sm text-neutral-400 mb-4">{m.description}</p>
                                     )}
                                     <div className="space-y-3">
-                                        {m.scoringRules.map(rule => (
+                                        {m.scoringRules.map((rule) => (
                                             <div key={rule.id} className="flex items-center gap-3 text-sm">
                                                 <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
                                                 <span className="text-neutral-300">
@@ -235,7 +254,7 @@ export default async function ChallengeDetailPage({
                         <div className="divide-y divide-neutral-800">
                             {leaderboard.map((user, index) => (
                                 <div
-                                    key={user.name}
+                                    key={user.participantId}
                                     className={`pr-4 sm:px-8 py-4 sm:py-6 flex items-center gap-3 sm:gap-6 transition-colors group hover:bg-neutral-900/40 ${index < 3 ? "bg-yellow-500/5" : ""
                                         }`}
                                 >

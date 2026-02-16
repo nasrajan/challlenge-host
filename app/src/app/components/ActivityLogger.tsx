@@ -4,7 +4,7 @@ import { getActivityLogsForDate, logActivities } from "@/app/actions/challenges"
 import { toLocalISOString } from "@/lib/dateUtils"
 import { Plus, X, Calendar, Activity, Info, CheckCircle2, ChevronDown } from "lucide-react"
 import { MetricInputType, ParticipantStatus } from "@prisma/client"
-import { useEffect, useState } from "react"
+import { useEffect, useState, memo, useCallback } from "react"
 import { useRouter } from "next/navigation"
 
 interface Metric {
@@ -30,11 +30,100 @@ interface ActivityLoggerProps {
     challengeId: string;
     challengeName: string;
     metrics: Metric[];
-    participants: Participant[]; // Added participants
+    participants: Participant[];
     startDate: Date;
     endDate: Date;
-    showPendingMessage?: boolean; // Added prop
+    showPendingMessage?: boolean;
+    initialParticipantId?: string;
 }
+
+const MetricInput = memo(({
+    metric,
+    value,
+    onChange,
+    type
+}: {
+    metric: Metric,
+    value: string | boolean,
+    onChange: (id: string, val: string | boolean) => void,
+    type: MetricInputType
+}) => {
+    const [showTooltip, setShowTooltip] = useState(false)
+
+    return (
+        <div className="bg-neutral-800/30 border border-neutral-800/50 rounded-2xl px-4 py-3 sm:py-4 flex items-center gap-4 group hover:border-neutral-700 transition-all relative">
+            <div className="flex-1 min-w-0">
+                <div className="relative inline-block w-full">
+                    <h4 className="font-bold text-sm text-neutral-200 leading-tight inline mr-1.5">
+                        {metric.name}
+                    </h4>
+                    {metric.description && (
+                        <div className="inline-block align-middle">
+                            <button
+                                type="button"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setShowTooltip(!showTooltip);
+                                }}
+                                className={`p-0.5 rounded-full transition-all ${showTooltip ? 'bg-yellow-500/20 text-yellow-500' : 'text-neutral-500 hover:text-neutral-300'}`}
+                            >
+                                <Info className="h-3.5 w-3.5" />
+                            </button>
+
+                            {showTooltip && (
+                                <>
+                                    <div
+                                        className="fixed inset-0 z-[60]"
+                                        onClick={() => setShowTooltip(false)}
+                                    />
+                                    <div className="absolute left-0 top-full mt-2 w-64 bg-neutral-900 border border-neutral-700 p-4 rounded-xl shadow-2xl z-[70] animate-in fade-in zoom-in slide-in-from-top-2 duration-200">
+                                        <div className="text-xs text-neutral-300 leading-relaxed font-medium whitespace-normal">
+                                            {metric.description}
+                                        </div>
+                                        <div className="absolute left-3 -top-1 w-2 h-2 bg-neutral-900 border-l border-t border-neutral-700 rotate-45" />
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    )}
+                </div>
+                <div className="mt-1">
+                    <span className="text-[10px] font-black text-neutral-500 uppercase tracking-tight">{metric.unit}</span>
+                </div>
+            </div>
+            <div className="w-32 flex justify-end">
+                {type === 'CHECKBOX' ? (
+                    <input
+                        type="checkbox"
+                        checked={!!value}
+                        onChange={(e) => onChange(metric.id, e.target.checked)}
+                        className="h-8 w-8 rounded-lg border-neutral-700 bg-neutral-900 text-yellow-500 focus:ring-yellow-500/50 accent-yellow-500 cursor-pointer"
+                    />
+                ) : type === 'TEXT' ? (
+                    <input
+                        type="text"
+                        placeholder="Enter note..."
+                        value={value as string || ""}
+                        onChange={(e) => onChange(metric.id, e.target.value)}
+                        className="w-full bg-neutral-900 border border-neutral-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500 transition-all text-sm font-medium text-neutral-200"
+                    />
+                ) : (
+                    <input
+                        type="number"
+                        step="any"
+                        min="0"
+                        placeholder="0"
+                        value={value as string || ""}
+                        onChange={(e) => onChange(metric.id, e.target.value)}
+                        className="w-full bg-neutral-900 border border-neutral-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500 transition-all text-right font-black"
+                    />
+                )}
+            </div>
+        </div>
+    )
+})
+
+MetricInput.displayName = "MetricInput"
 
 export default function ActivityLogger({
     challengeId,
@@ -43,13 +132,20 @@ export default function ActivityLogger({
     participants,
     startDate,
     endDate,
-    showPendingMessage = true // Default to true
+    showPendingMessage = true,
+    initialParticipantId
 }: ActivityLoggerProps) {
     const [isOpen, setIsOpen] = useState(false)
     const [selectedParticipantId, setSelectedParticipantId] = useState(() => {
+        if (initialParticipantId) return initialParticipantId;
         const firstApproved = participants.find(p => p.status === 'APPROVED')
         return firstApproved?.id || ""
     })
+
+    // Deduplicate metrics by ID just in case source data has duplicates
+    const uniqueMetrics = metrics.filter((m, index, self) =>
+        index === self.findIndex((t) => t.id === m.id)
+    );
     const [loading, setLoading] = useState(false)
     const [loadingLogs, setLoadingLogs] = useState(false)
     const [error, setError] = useState<string | null>(null)
@@ -60,6 +156,18 @@ export default function ActivityLogger({
     const [textValues, setTextValues] = useState<Record<string, string>>({})
     const [notesValue, setNotesValue] = useState("")
     const router = useRouter()
+
+    const handleCheckboxChange = useCallback((id: string, val: string | boolean) => {
+        setCheckboxValues(prev => ({ ...prev, [id]: val as boolean }))
+    }, [])
+
+    const handleTextChange = useCallback((id: string, val: string | boolean) => {
+        setTextValues(prev => ({ ...prev, [id]: val as string }))
+    }, [])
+
+    const handleMetricChange = useCallback((id: string, val: string | boolean) => {
+        setMetricValues(prev => ({ ...prev, [id]: val as string }))
+    }, [])
 
     useEffect(() => {
         if (isOpen) {
@@ -134,7 +242,7 @@ export default function ActivityLogger({
         const logDate = selectedDate
         const notes = notesValue
 
-        for (const metric of metrics) {
+        for (const metric of uniqueMetrics) {
             if (metric.inputType === 'CHECKBOX') {
                 const checked = checkboxValues[metric.id];
                 if (checked) {
@@ -256,7 +364,7 @@ export default function ActivityLogger({
                     )}
 
                     <div className="grid gap-6">
-                        {participants.length > 1 && (
+                        {approvedParticipants.length > 1 && (
                             <div className="grid gap-3">
                                 <label className="text-[10px] font-black text-neutral-500 ml-1">Participant</label>
                                 <div className="relative">
@@ -266,7 +374,7 @@ export default function ActivityLogger({
                                         className="w-full bg-neutral-800/50 border border-neutral-700/50 rounded-2xl px-4 py-4 outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500 transition-all font-bold appearance-none text-neutral-200"
                                     >
                                         {approvedParticipants.map(p => (
-                                            <option key={p.id} value={p.id}>{p.name}</option>
+                                            <option key={p.id} value={p.id}>{p.displayName || p.name}</option>
                                         ))}
                                     </select>
                                     <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-neutral-500 pointer-events-none" />
@@ -276,7 +384,7 @@ export default function ActivityLogger({
                         <div className="grid gap-3">
                             <label className="text-[10px] font-black text-neutral-500 ml-1">Date</label>
                             <div className="relative group">
-                                <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-neutral-500 group-focus-within:text-yellow-500 transition-colors" />
+                                <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-yellow-500 transition-colors" />
                                 <input
                                     name="logDate"
                                     type="date"
@@ -291,71 +399,34 @@ export default function ActivityLogger({
                                         return toLocalISOString(maxDate);
                                     })()}
                                     required
-                                    className="w-full bg-neutral-800/50 border border-neutral-700/50 rounded-2xl pl-12 pr-6 py-4 outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500 transition-all font-bold"
+                                    className="w-full bg-neutral-800/50 border border-neutral-700/50 rounded-2xl pl-12 pr-6 py-2 outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500 transition-all font-bold date-input-field"
                                 />
                             </div>
                         </div>
 
                         <div className="space-y-4">
                             <label className="text-[10px] font-black text-neutral-500 ml-1">Daily Scores</label>
-                            <div className="grid gap-4">
-                                {metrics.map(metric => (
-                                    <div key={metric.id} className="bg-neutral-800/30 border border-neutral-800/50 rounded-2xl p-4 flex items-center gap-4 group hover:border-neutral-700 transition-all">
-                                        <div className="flex-1">
-                                            <h4 className="font-bold text-sm text-neutral-200">{metric.name}</h4>
-                                            <span className="text-[10px] font-black text-neutral-500">{metric.unit}</span>
-                                            {metric.description && (
-                                                <p className="text-xs text-neutral-400 mt-1">{metric.description}</p>
-                                            )}
-                                        </div>
-                                        <div className="w-32 flex justify-end">
-                                            {metric.inputType === 'CHECKBOX' ? (
-                                                <input
-                                                    name={`value_${metric.id}`}
-                                                    type="checkbox"
-                                                    value="1"
-                                                    checked={!!checkboxValues[metric.id]}
-                                                    onChange={(e) => {
-                                                        setCheckboxValues((prev) => ({
-                                                            ...prev,
-                                                            [metric.id]: e.target.checked
-                                                        }))
-                                                    }}
-                                                    className="h-8 w-8 rounded-lg border-neutral-700 bg-neutral-900 text-yellow-500 focus:ring-yellow-500/50 accent-yellow-500"
-                                                />
-                                            ) : metric.inputType === 'TEXT' ? (
-                                                <input
-                                                    name={`value_${metric.id}`}
-                                                    type="text"
-                                                    placeholder="Enter note..."
-                                                    value={textValues[metric.id] || ""}
-                                                    onChange={(e) => {
-                                                        setTextValues((prev) => ({
-                                                            ...prev,
-                                                            [metric.id]: e.target.value
-                                                        }))
-                                                    }}
-                                                    className="w-full bg-neutral-900 border border-neutral-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500 transition-all text-sm font-medium text-neutral-200"
-                                                />
-                                            ) : (
-                                                <input
-                                                    name={`value_${metric.id}`}
-                                                    type="number"
-                                                    step="any"
-                                                    min="0"
-                                                    placeholder="0"
-                                                    value={metricValues[metric.id] || ""}
-                                                    onChange={(e) => {
-                                                        setMetricValues((prev) => ({
-                                                            ...prev,
-                                                            [metric.id]: e.target.value
-                                                        }))
-                                                    }}
-                                                    className="w-full bg-neutral-900 border border-neutral-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500 transition-all text-right font-black"
-                                                />
-                                            )}
-                                        </div>
-                                    </div>
+                            <div className="grid gap-4 border border-neutral-700/50 rounded-2xl p-2">
+                                {uniqueMetrics.map(metric => (
+                                    <MetricInput
+                                        key={metric.id}
+                                        metric={metric}
+                                        type={metric.inputType}
+                                        value={
+                                            metric.inputType === 'CHECKBOX'
+                                                ? checkboxValues[metric.id]
+                                                : metric.inputType === 'TEXT'
+                                                    ? textValues[metric.id]
+                                                    : metricValues[metric.id]
+                                        }
+                                        onChange={
+                                            metric.inputType === 'CHECKBOX'
+                                                ? handleCheckboxChange
+                                                : metric.inputType === 'TEXT'
+                                                    ? handleTextChange
+                                                    : handleMetricChange
+                                        }
+                                    />
                                 ))}
                             </div>
                         </div>
@@ -403,6 +474,16 @@ export default function ActivityLogger({
                 }
                 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
                     background: #404040;
+                }
+                .date-input-field::-webkit-calendar-picker-indicator {
+                    filter: invert(1);
+                    cursor: pointer;
+                    padding: 4px;
+                    border-radius: 6px;
+                    transition: all 0.2s;
+                }
+                .date-input-field::-webkit-calendar-picker-indicator:hover {
+                    background: rgba(255, 255, 255, 0.1);
                 }
             `}</style>
         </div>

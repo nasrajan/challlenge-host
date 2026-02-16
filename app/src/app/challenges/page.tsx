@@ -5,7 +5,6 @@ import Link from "next/link"
 import { redirect } from "next/navigation"
 import { Trophy, Calendar, Users, ChevronRight, Filter, LayoutDashboard } from "lucide-react"
 import { syncChallengeStatuses } from "@/app/actions/challenges"
-import JoinChallengeModal from "@/app/components/JoinChallengeModal"
 import DateDisplay from "@/app/components/DateDisplay"
 
 export default async function ChallengesExplorePage() {

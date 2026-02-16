@@ -13,7 +13,7 @@ import type {
 } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 import { approveParticipant, syncChallengeStatuses } from "@/app/actions/challenges"
-import { addDays, endOfDay } from "date-fns"
+import { addDays, endOfDay, format } from "date-fns"
 import { toZonedTime, fromZonedTime, formatInTimeZone } from "date-fns-tz"
 import { calculateScoreFromLogs } from "@/lib/scoring"
 import { isMidnightUTC } from "@/lib/dateUtils"
@@ -98,28 +98,52 @@ interface DashboardItem {
     key: string
 }
 
-function getCurrentChallengeWeekWindow(startDate: Date, endDate: Date, timeZone: string, now: Date = new Date()) {
+function getCurrentChallengeWeekWindow(
+    startDate: Date,
+    endDate: Date,
+    timeZone: string,
+    now: Date = new Date(),
+    useLocalCalendarDateForCurrentWeek: boolean = false
+) {
     const zonedNow = toZonedTime(now, timeZone)
-    const zonedChallengeEnd = endOfDay(toZonedTime(endDate, timeZone))
+    let currentStart = toZonedTime(startDate, timeZone)
+    const zonedEndDate = toZonedTime(endDate, timeZone)
 
-    let zonedWeekStart = toZonedTime(startDate, timeZone)
-    let zonedWeekEnd = endOfDay(addDays(zonedWeekStart, 6))
-
-    while (zonedWeekEnd < zonedNow && zonedWeekStart < zonedChallengeEnd) {
-        const nextWeekStart = addDays(zonedWeekStart, 7)
-        if (nextWeekStart > zonedChallengeEnd) break
-        zonedWeekStart = nextWeekStart
-        zonedWeekEnd = endOfDay(addDays(zonedWeekStart, 6))
+    let fallbackWeek = {
+        weekStartUtc: fromZonedTime(currentStart, timeZone),
+        weekEndUtc: fromZonedTime(endOfDay(addDays(currentStart, 6)), timeZone),
+        rangeLabel: `${format(currentStart, 'MMM d')} - ${format(endOfDay(addDays(currentStart, 6)), 'MMM d')}`
     }
 
-    if (zonedWeekEnd > zonedChallengeEnd) {
-        zonedWeekEnd = zonedChallengeEnd
+    while (currentStart < zonedEndDate) {
+        let currentEnd = endOfDay(addDays(currentStart, 6))
+        if (currentEnd > endOfDay(zonedEndDate)) {
+            currentEnd = endOfDay(zonedEndDate)
+        }
+
+        const currentWeek = {
+            weekStartUtc: fromZonedTime(currentStart, timeZone),
+            weekEndUtc: fromZonedTime(currentEnd, timeZone),
+            rangeLabel: `${format(currentStart, 'MMM d')} - ${format(currentEnd, 'MMM d')}`
+        }
+
+        fallbackWeek = currentWeek
+
+        if (useLocalCalendarDateForCurrentWeek) {
+            const todayLocalKey = format(now, 'yyyy-MM-dd')
+            const weekStartKey = formatInTimeZone(currentWeek.weekStartUtc, 'UTC', 'yyyy-MM-dd')
+            const weekEndKey = formatInTimeZone(currentWeek.weekEndUtc, 'UTC', 'yyyy-MM-dd')
+            if (todayLocalKey >= weekStartKey && todayLocalKey <= weekEndKey) {
+                return currentWeek
+            }
+        } else if (zonedNow >= currentStart && zonedNow <= currentEnd) {
+            return currentWeek
+        }
+
+        currentStart = addDays(currentStart, 7)
     }
 
-    return {
-        weekStartUtc: fromZonedTime(zonedWeekStart, timeZone),
-        weekEndUtc: fromZonedTime(zonedWeekEnd, timeZone)
-    }
+    return fallbackWeek
 }
 
 export default async function DashboardPage() {
@@ -172,7 +196,7 @@ export default async function DashboardPage() {
                     id: true,
                     name: true,
                     // Fix: description exists on ChallengeMetric
-                    description: true,
+                    // description field removed as it does not exist in ChallengeMetricSelect
                     unit: true,
                     inputType: true,
                     aggregationMethod: true,
@@ -385,11 +409,14 @@ export default async function DashboardPage() {
                             <div className="grid gap-6">
                                 {dashboardItems.map((item) => {
                                     const { challenge, participant, key } = item;
-                                    const timeZone = isMidnightUTC(challenge.startDate) ? 'UTC' : challenge.timezone || 'UTC';
-                                    const { weekStartUtc, weekEndUtc } = getCurrentChallengeWeekWindow(
+                                    const useDateOnlyWeekMode = isMidnightUTC(challenge.startDate)
+                                    const timeZone = useDateOnlyWeekMode ? 'UTC' : challenge.timezone || 'UTC';
+                                    const { weekStartUtc, weekEndUtc, rangeLabel } = getCurrentChallengeWeekWindow(
                                         challenge.startDate,
                                         challenge.endDate,
-                                        timeZone
+                                        timeZone,
+                                        new Date(),
+                                        useDateOnlyWeekMode
                                     );
                                     return (
                                         <div key={key} className="bg-neutral-900 border border-neutral-800 rounded-3xl p-6 hover:border-neutral-700 transition-all flex flex-col md:flex-row justify-between gap-6 group">
@@ -428,8 +455,6 @@ export default async function DashboardPage() {
                                                             timeZone
                                                         );
                                                         const totalScore = lastSnapshot?.totalPoints || 0;
-
-                                                        const rangeLabel = `${formatInTimeZone(weekStartUtc, timeZone, 'MMM d')} - ${formatInTimeZone(weekEndUtc, timeZone, 'MMM d')}`;
 
                                                         return (
                                                             <div key={m.id} className="bg-neutral-950/40 rounded-2xl p-3 border border-neutral-800 hover:border-neutral-700/50 transition-all flex flex-col justify-between gap-3">

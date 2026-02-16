@@ -48,12 +48,8 @@ function ExpandableDescription({ title, description }: ExpandableDescriptionProp
             bodyEl.style.whiteSpace = 'pre-wrap'
             bodyEl.style.wordBreak = 'break-word'
             bodyEl.style.color = '#a3a3a3'
-
-            const isArabic = /[\u0600-\u06FF]/.test(description)
-            if (isArabic) {
-                bodyEl.dir = 'rtl'
-                bodyEl.style.textAlign = 'right'
-            }
+            bodyEl.dir = 'ltr'
+            bodyEl.style.textAlign = 'left'
 
             container.appendChild(bodyEl)
             document.body.appendChild(container)
@@ -70,14 +66,29 @@ function ExpandableDescription({ title, description }: ExpandableDescriptionProp
             const imgData = canvas.toDataURL("image/png")
             const pdf = new jsPDF({
                 orientation: 'p',
-                unit: 'px',
-                format: [canvas.width / 2, canvas.height / 2]
+                unit: 'mm',
+                format: 'a4'
             })
 
-            const pdfWidth = pdf.internal.pageSize.getWidth()
-            const pdfHeight = pdf.internal.pageSize.getHeight()
+            const pageWidth = pdf.internal.pageSize.getWidth()
+            const pageHeight = pdf.internal.pageSize.getHeight()
+            const margin = 8
+            const contentWidth = pageWidth - margin * 2
+            const contentHeight = pageHeight - margin * 2
+            const imageHeight = (canvas.height * contentWidth) / canvas.width
 
-            pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight)
+            let heightLeft = imageHeight
+            let position = 0
+
+            pdf.addImage(imgData, "PNG", margin, margin + position, contentWidth, imageHeight)
+            heightLeft -= contentHeight
+
+            while (heightLeft > 0) {
+                position -= contentHeight
+                pdf.addPage()
+                pdf.addImage(imgData, "PNG", margin, margin + position, contentWidth, imageHeight)
+                heightLeft -= contentHeight
+            }
             pdf.save(`${title.replace(/\s+/g, '_')}_description.pdf`)
 
         } catch (err) {

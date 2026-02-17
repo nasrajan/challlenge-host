@@ -7,6 +7,7 @@ import {
 } from "@prisma/client";
 import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, format } from "date-fns";
 import { toZonedTime, fromZonedTime } from "date-fns-tz";
+import { getConfigForPeriod } from "./metricConfig";
 
 export interface Period {
     start: Date;
@@ -95,6 +96,7 @@ type ScoreMetric = {
     maxPointsPerPeriod: number | null
     maxPointsTotal: number | null
     scoringRules: Pick<ScoringRule, "qualifierId" | "comparisonType" | "minValue" | "maxValue" | "points">[]
+    configHistory?: any // Added for versioning
 }
 type ScoreParticipant = Pick<Participant, "id" | "userId" | "name" | "displayName">
 
@@ -129,6 +131,14 @@ export function calculateScoreFromLogs(logs: ActivityLog[], metric: ScoreMetric,
     for (const [periodKey, logsInPeriod] of periodsLogs) {
         const { start, end } = getPeriodInterval(new Date(periodKey), metric.scoringFrequency, timeZone);
 
+        // Resolve config for this period
+        const historicalConfig = getConfigForPeriod(metric.configHistory, start, end);
+
+        const effectivePointsPerUnit = historicalConfig?.pointsPerUnit !== undefined ? historicalConfig.pointsPerUnit : metric.pointsPerUnit;
+        const effectiveMaxPerPeriod = historicalConfig?.maxPointsPerPeriod !== undefined ? historicalConfig.maxPointsPerPeriod : metric.maxPointsPerPeriod;
+        const effectiveMaxTotal = historicalConfig?.maxPointsTotal !== undefined ? historicalConfig.maxPointsTotal : metric.maxPointsTotal;
+        const effectiveRules = historicalConfig?.scoringRules ?? metric.scoringRules;
+
         // Group logs in period by qualifier
         const qualifierGroups: Map<string | null, number> = new Map();
 
@@ -158,22 +168,22 @@ export function calculateScoreFromLogs(logs: ActivityLog[], metric: ScoreMetric,
 
         let periodRawPoints = 0;
 
-        if (metric.pointsPerUnit !== null && metric.pointsPerUnit !== undefined) {
+        if (effectivePointsPerUnit !== null && effectivePointsPerUnit !== undefined) {
             // Use Points Per Unit - bypass rules
             // Calculate total units across all logs in period
             let totalUnits = 0;
             qualifierGroups.forEach((val) => {
                 totalUnits += val;
             });
-            periodRawPoints = totalUnits * metric.pointsPerUnit;
+            periodRawPoints = totalUnits * effectivePointsPerUnit;
         } else {
             // Apply rules for each qualifier group
             qualifierGroups.forEach((aggregatedVal, qualifierId) => {
-                const relevantRules = metric.scoringRules.filter((rule) => rule.qualifierId === qualifierId);
+                const relevantRules = effectiveRules.filter((rule: any) => rule.qualifierId === qualifierId);
 
                 const rulesToEvaluate = relevantRules.length > 0
                     ? relevantRules
-                    : metric.scoringRules.filter((rule) => rule.qualifierId === null);
+                    : effectiveRules.filter((rule: any) => rule.qualifierId === null);
 
                 rulesToEvaluate.forEach((rule) => {
                     let matches = false;
@@ -198,15 +208,15 @@ export function calculateScoreFromLogs(logs: ActivityLog[], metric: ScoreMetric,
 
         // Apply Period Cap
         let periodCappedPoints = periodRawPoints;
-        if (metric.maxPointsPerPeriod !== null) {
-            periodCappedPoints = Math.min(periodRawPoints, metric.maxPointsPerPeriod);
+        if (effectiveMaxPerPeriod !== null && effectiveMaxPerPeriod !== undefined) {
+            periodCappedPoints = Math.min(periodRawPoints, effectiveMaxPerPeriod);
         }
 
         totalCumulativePoints += periodCappedPoints;
 
         // Apply Total Cap
-        if (metric.maxPointsTotal !== null) {
-            totalCumulativePoints = Math.min(totalCumulativePoints, metric.maxPointsTotal);
+        if (effectiveMaxTotal !== null && effectiveMaxTotal !== undefined) {
+            totalCumulativePoints = Math.min(totalCumulativePoints, effectiveMaxTotal);
         }
 
         snapshots.push({

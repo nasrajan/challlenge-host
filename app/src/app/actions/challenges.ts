@@ -13,9 +13,10 @@ import {
 } from "@prisma/client"
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
-import { recalculateParticipantChallengeScore, calculateParticipantScoreForMetric } from "@/lib/scoring"
+import { recalculateParticipantChallengeScore, calculateParticipantScoreForMetric, getPeriodInterval } from "@/lib/scoring"
 import { parseAsPST } from "@/lib/dateUtils"
 import { startOfDay, endOfDay } from "date-fns"
+import { buildSnapshotFromMetric, hasConfigChanged } from "@/lib/metricConfig"
 
 interface MetricPayloadQualifier {
     value: string
@@ -31,7 +32,7 @@ interface MetricPayloadRule {
 interface MetricPayload {
     id: string
     name: string
-    description?: string | null
+    description: string | null | undefined
     unit: string
     inputType: MetricInputType
     aggregationMethod: AggregationMethod
@@ -41,6 +42,7 @@ interface MetricPayload {
     pointsPerUnit: number | null
     qualifiers?: MetricPayloadQualifier[]
     scoringRules?: MetricPayloadRule[]
+    configHistory?: any // Added for versioning
 }
 
 export async function syncChallengeStatuses(now: Date = new Date()) {
@@ -318,23 +320,33 @@ export async function updateChallenge(challengeId: string, formData: FormData) {
 
     const name = formData.get("name") as string
     const description = formData.get("description") as string
-    const startDate = new Date(formData.get("startDate") as string)
-    const endDate = new Date(formData.get("endDate") as string)
+    const startDateRaw = formData.get("startDate") as string
+    const endDateRaw = formData.get("endDate") as string
     const isPublic = formData.get("isPublic") === "true"
     const requiresApproval = formData.get("requiresApproval") === "true"
     const allowMultiParticipants = formData.get("allowMultiParticipants") === "true"
     const showLeaderboard = formData.get("showLeaderboard") === "true"
     const maxParticipants = formData.get("maxParticipants") ? parseInt(formData.get("maxParticipants") as string) : null
-    const organizerId = formData.get("organizerId") as string | null
+    const organizerId = formData.get("organizerId") as string
 
     const metricsDataJson = formData.get("metricsData") as string
     const metricsData = JSON.parse(metricsDataJson || "[]") as MetricPayload[]
+
+    // Parse dates
+    const startDate = parseAsPST(startDateRaw)
+    const endDate = parseAsPST(endDateRaw)
 
     try {
         await prisma.$transaction(async (tx) => {
             const existing = await tx.challenge.findUnique({
                 where: { id: challengeId },
-                include: { metrics: true }
+                include: {
+                    metrics: {
+                        include: {
+                            scoringRules: true
+                        }
+                    }
+                }
             })
 
             if (!existing) throw new Error("Challenge not found")
@@ -363,8 +375,6 @@ export async function updateChallenge(challengeId: string, formData: FormData) {
             // 1. Delete removed metrics
             const metricsToDelete = existing.metrics.filter(m => !incomingMetricIds.has(m.id))
             for (const metric of metricsToDelete) {
-                // This might fail if activities exist, which is expected behavior (constraints)
-                // We could wrap in try/catch to ignore or warn, but letting it fail prevents accidental data loss
                 await tx.challengeMetric.delete({ where: { id: metric.id } })
             }
 
@@ -372,6 +382,41 @@ export async function updateChallenge(challengeId: string, formData: FormData) {
             for (const m of metricsData) {
                 if (existingMetricIds.has(m.id)) {
                     // UPDATE existing metric
+                    const existingMetric = existing.metrics.find(em => em.id === m.id)!
+
+                    const oldSnapshot = buildSnapshotFromMetric(existingMetric as any)
+                    const newSnapshot = buildSnapshotFromMetric({
+                        ...m,
+                        description: m.description ?? null,
+                        scoringRules: m.scoringRules ?? []
+                    } as any)
+
+                    let updatedConfigHistory = (existingMetric as any).configHistory
+
+                    if (hasConfigChanged(oldSnapshot, newSnapshot)) {
+                        // Config changed, archive the old one
+                        const { end: periodEnd } = getPeriodInterval(
+                            new Date(),
+                            existingMetric.scoringFrequency,
+                            existing.timezone
+                        )
+
+                        const history = Array.isArray((existingMetric as any).configHistory)
+                            ? [...((existingMetric as any).configHistory as any[])]
+                            : []
+
+                        // Find if there's an existing history entry covering from the end of last entry
+                        const lastEntry = history.length > 0 ? history[history.length - 1] : null
+                        const effectiveFrom = lastEntry ? lastEntry.effectiveTo : null
+
+                        history.push({
+                            ...oldSnapshot,
+                            effectiveFrom,
+                            effectiveTo: periodEnd.toISOString()
+                        })
+                        updatedConfigHistory = history
+                    }
+
                     await tx.challengeMetric.update({
                         where: { id: m.id },
                         data: {
@@ -384,11 +429,11 @@ export async function updateChallenge(challengeId: string, formData: FormData) {
                             maxPointsPerPeriod: m.maxPointsPerPeriod,
                             maxPointsTotal: m.maxPointsTotal,
                             pointsPerUnit: m.pointsPerUnit,
+                            configHistory: (updatedConfigHistory as Prisma.InputJsonValue) ?? []
                         }
                     })
 
                     // Refresh scoring rules (delete all and recreate)
-                    // We assume scoring rules don't have external FK dependencies preventing delete
                     await tx.scoringRule.deleteMany({
                         where: { metricId: m.id }
                     })

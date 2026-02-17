@@ -7,3 +7,11 @@ app/prisma/bkmigrations/migration_lock.toml
 app/prisma/bkmigrations/20260214032017_init/migration.sql
 app/prisma/migrations/manual_fix.sql
 .gitignore
+backups/backups/backup_database.sh
+backups/backups/dev/db_backup_dev_20260216_161836.bak
+backups/backups/prod/db_backup_prod_20260216_161901.bak
+backups/dev/db_backup_dev_20260216_161616.bak
+backups/dev/db_backup_dev_20260216_161732.bak
+app/backups/db_backup_2026-02-16.json
+
+backups/

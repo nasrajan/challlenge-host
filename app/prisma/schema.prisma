@@ -96,6 +96,7 @@ model ChallengeMetric {
   scoringFrequency   ScoringFrequency  @default(DAILY)
   maxPointsPerPeriod Float?
   maxPointsTotal     Float?
+  configHistory      Json              @default("[]")
   createdAt          DateTime          @default(now())
   updatedAt          DateTime          @updatedAt
   activityLogs       ActivityLog[]

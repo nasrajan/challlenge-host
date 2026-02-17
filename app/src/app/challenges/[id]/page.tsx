@@ -228,6 +228,30 @@ export default async function ChallengeDetailPage({
                                                 <span className="ml-2 font-black text-yellow-500">+{rule.points} pts</span>
                                             </div>
                                         ))}
+                                        {m.pointsPerUnit && (
+                                            <div className="flex items-center gap-3 text-sm">
+                                                <CheckCircle2 className="h-4 w-4 text-yellow-500 shrink-0" />
+                                                <span className="text-neutral-300">
+                                                    Score: 1 {m.unit} = {m.pointsPerUnit} pts
+                                                </span>
+                                            </div>
+                                        )}
+                                        {m.maxPointsPerPeriod && (
+                                            <div className="flex items-center gap-3 text-sm italic">
+                                                <CheckCircle2 className="h-4 w-4 text-neutral-400 shrink-0" />
+                                                <span className="text-neutral-400">
+                                                    Cap: {m.maxPointsPerPeriod} pts / {m.scoringFrequency.toLowerCase()}
+                                                </span>
+                                            </div>
+                                        )}
+                                        {m.maxPointsTotal && (
+                                            <div className="flex items-center gap-3 text-sm italic">
+                                                <CheckCircle2 className="h-4 w-4 text-neutral-400 shrink-0" />
+                                                <span className="text-neutral-400">
+                                                    Max Challenge Score: {m.maxPointsTotal} pts
+                                                </span>
+                                            </div>
+                                        )}
                                         <div className="pt-3 border-t border-neutral-800 mt-2 flex items-center justify-between">
                                             <div className="text-[10px] font-bold text-neutral-700">Aggregation</div>
                                             <div className="text-xs font-bold text-neutral-400">{m.aggregationMethod} / {m.scoringFrequency}</div>

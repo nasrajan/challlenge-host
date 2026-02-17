@@ -63,42 +63,42 @@ model VerificationToken {
 }
 
 model Challenge {
-  id               String            @id @default(cuid())
-  name             String
-  description      String?
-  startDate        DateTime
-  endDate          DateTime
-  status           ChallengeStatus   @default(UPCOMING)
-  organizerId      String
-  isPublic         Boolean           @default(true)
-  timezone         String            @default("America/Los_Angeles")
-  maxParticipants  Int?
-  requiresApproval Boolean           @default(false)
-  allowMultiParticipants Boolean     @default(false)
-  showLeaderboard  Boolean           @default(true)
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-  activityLogs     ActivityLog[]
-  organizer        User              @relation("OrganizedChallenges", fields: [organizerId], references: [id], onDelete: Cascade)
-  metrics          ChallengeMetric[]
-  participants     Participant[]
+  id                     String            @id @default(cuid())
+  name                   String
+  description            String?
+  startDate              DateTime
+  endDate                DateTime
+  status                 ChallengeStatus   @default(UPCOMING)
+  organizerId            String
+  isPublic               Boolean           @default(true)
+  timezone               String            @default("America/Los_Angeles")
+  maxParticipants        Int?
+  requiresApproval       Boolean           @default(false)
+  allowMultiParticipants Boolean           @default(false)
+  showLeaderboard        Boolean           @default(true)
+  createdAt              DateTime          @default(now())
+  updatedAt              DateTime          @updatedAt
+  activityLogs           ActivityLog[]
+  organizer              User              @relation("OrganizedChallenges", fields: [organizerId], references: [id], onDelete: Cascade)
+  metrics                ChallengeMetric[]
+  participants           Participant[]
 }
 
 model ChallengeMetric {
   id                 String            @id @default(cuid())
   challengeId        String
   name               String
-  description        String?
   unit               String
-  pointsPerUnit      Int?
   inputType          MetricInputType   @default(NUMBER)
   aggregationMethod  AggregationMethod @default(SUM)
   scoringFrequency   ScoringFrequency  @default(DAILY)
   maxPointsPerPeriod Float?
   maxPointsTotal     Float?
-  configHistory      Json              @default("[]")
   createdAt          DateTime          @default(now())
   updatedAt          DateTime          @updatedAt
+  configHistory      Json              @default("[]")
+  description        String?
+  pointsPerUnit      Int?
   activityLogs       ActivityLog[]
   challenge          Challenge         @relation(fields: [challengeId], references: [id], onDelete: Cascade)
   qualifiers         MetricQualifier[]
@@ -132,25 +132,25 @@ model ScoringRule {
 }
 
 model Participant {
-  id          String            @id @default(cuid())
-  userId      String
-  challengeId String
-  name        String            // Unique name for user within challenge
-  displayName String?
-  joinedAt    DateTime          @default(now())
-  status      ParticipantStatus @default(PENDING)
-  challenge   Challenge         @relation(fields: [challengeId], references: [id], onDelete: Cascade)
-  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  activityLogs ActivityLog[]
+  id             String            @id @default(cuid())
+  userId         String
+  challengeId    String
+  name           String
+  displayName    String?
+  joinedAt       DateTime          @default(now())
+  status         ParticipantStatus @default(PENDING)
+  activityLogs   ActivityLog[]
+  challenge      Challenge         @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  user           User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   scoreSnapshots ScoreSnapshot[]
 
-  @@unique([userId, challengeId, name]) // Updated unique constraint
+  @@unique([userId, challengeId, name])
 }
 
 model ActivityLog {
   id            String           @id @default(cuid())
   userId        String
-  participantId String?          // Optional for migration, will be required later
+  participantId String?
   challengeId   String
   date          DateTime
   value         Float
@@ -162,9 +162,9 @@ model ActivityLog {
   qualifierId   String?
   challenge     Challenge        @relation(fields: [challengeId], references: [id])
   metric        ChallengeMetric  @relation(fields: [metricId], references: [id])
+  participant   Participant?     @relation(fields: [participantId], references: [id], onDelete: Cascade)
   qualifier     MetricQualifier? @relation(fields: [qualifierId], references: [id])
   user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  participant   Participant?     @relation(fields: [participantId], references: [id], onDelete: Cascade)
 
   @@index([userId, challengeId, metricId])
   @@index([participantId])
@@ -173,7 +173,7 @@ model ActivityLog {
 model ScoreSnapshot {
   id            String          @id @default(cuid())
   userId        String
-  participantId String?         // Optional for migration
+  participantId String?
   challengeId   String
   metricId      String
   displayName   String?
@@ -185,8 +185,8 @@ model ScoreSnapshot {
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
   metric        ChallengeMetric @relation(fields: [metricId], references: [id])
-  user          User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   participant   Participant?    @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  user          User            @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, challengeId, metricId])
   @@index([participantId])

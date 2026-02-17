@@ -5,6 +5,7 @@ import { Trophy } from "lucide-react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useState } from "react"
+import Alert from "../../components/Alert"
 
 export default function ResetPasswordClient() {
     const router = useRouter()
@@ -54,12 +55,7 @@ export default function ResetPasswordClient() {
             </div>
 
             <div className="mt-8 space-y-6 bg-neutral-900 px-6 py-8 shadow sm:rounded-lg border border-neutral-800">
-
-                {error && (
-                    <div className="bg-red-900/50 border border-red-500 text-red-200 px-4 py-2 rounded text-sm mb-4">
-                        {error}
-                    </div>
-                )}
+                <Alert type="error" message={error} className="mb-4" />
 
                 <form action={handleSubmit} className="space-y-6">
                     <div>

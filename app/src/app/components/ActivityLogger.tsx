@@ -6,6 +6,7 @@ import { Plus, X, Calendar, Activity, Info, CheckCircle2, ChevronDown } from "lu
 import { MetricInputType, ParticipantStatus } from "@prisma/client"
 import { useEffect, useState, memo, useCallback } from "react"
 import { useRouter } from "next/navigation"
+import Alert from "./Alert"
 
 interface Metric {
     id: string;
@@ -229,6 +230,27 @@ export default function ActivityLogger({
 
         const entries = []
         const logDate = selectedDate
+
+        // Date Validation
+        const startStr = toLocalISOString(startDate)
+        const endStr = toLocalISOString(endDate)
+        const todayStr = toLocalISOString(new Date())
+
+        if (logDate < startStr) {
+            setError(`This challenge starts on ${startStr}. Please select a valid date.`)
+            setLoading(false)
+            return
+        }
+        if (logDate > endStr) {
+            setError(`This challenge ended on ${endStr}. Please select a valid date.`)
+            setLoading(false)
+            return
+        }
+        if (logDate > todayStr) {
+            setError("You cannot log activities for future dates.")
+            setLoading(false)
+            return
+        }
         const notes = notesValue
 
         for (const metric of uniqueMetrics) {
@@ -340,20 +362,9 @@ export default function ActivityLogger({
                     </button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="p-8 space-y-8 max-h-[70vh] overflow-y-auto custom-scrollbar">
-                    {error && (
-                        <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-2xl text-sm flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
-                            <Info className="h-5 w-5 shrink-0" />
-                            {error}
-                        </div>
-                    )}
-
-                    {success && (
-                        <div className="bg-green-500/10 border border-green-500/20 text-green-400 p-4 rounded-2xl text-sm flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
-                            <CheckCircle2 className="h-5 w-5 shrink-0" />
-                            Log saved successfully!
-                        </div>
-                    )}
+                <form noValidate onSubmit={handleSubmit} className="p-8 space-y-8 max-h-[70vh] overflow-y-auto custom-scrollbar">
+                    <Alert type="error" message={error} />
+                    <Alert type="success" message={success ? "Log saved successfully!" : null} />
 
                     <div className="grid gap-6">
                         {approvedParticipants.length > 1 && (
@@ -390,7 +401,6 @@ export default function ActivityLogger({
                                         const maxDate = today < end ? today : end;
                                         return toLocalISOString(maxDate);
                                     })()}
-                                    required
                                     className="w-full bg-neutral-800/50 border border-neutral-700/50 rounded-2xl pl-12 pr-6 py-2 outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500 transition-all font-bold date-input-field"
                                 />
                             </div>

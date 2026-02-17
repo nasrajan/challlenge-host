@@ -12,7 +12,8 @@ import {
     Users
 } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { memo, useCallback, useMemo, useState } from "react"
+import { memo, useCallback, useMemo, useState, useEffect } from "react"
+import Alert from "../Alert"
 import {
     AggregationMethod,
     ScoringFrequency,
@@ -204,12 +205,7 @@ export default function ChallengeForm({ initialData, mode, organizers, currentUs
 
     return (
         <form onSubmit={handleSubmit} className="space-y-12">
-            {error && (
-                <div className="bg-red-900/20 border border-red-500/50 text-red-200 p-6 rounded-2xl text-sm flex items-start gap-3">
-                    <Info className="h-5 w-5 shrink-0" />
-                    {error}
-                </div>
-            )}
+            <Alert type="error" message={error} />
 
             {/* Section 1: Basic Info */}
             <section className="bg-neutral-900 border border-neutral-800 rounded-3xl p-8 space-y-8 shadow-xl">

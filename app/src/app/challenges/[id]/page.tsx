@@ -185,8 +185,13 @@ export default async function ChallengeDetailPage({
                                         unit: m.unit,
                                         description: m.description || undefined,
                                         qualifiers: m.qualifiers || [],
-                                        inputType: m.inputType
+                                        inputType: m.inputType,
+                                        maxPointsPerPeriod: m.maxPointsPerPeriod,
+                                        pointsPerUnit: m.pointsPerUnit,
+                                        scoringFrequency: m.scoringFrequency,
+                                        aggregationMethod: m.aggregationMethod,
                                     }))}
+                                    timezone={challenge.timezone}
                                 />
                             )}
 

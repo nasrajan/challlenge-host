@@ -15,7 +15,7 @@ import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 import { recalculateParticipantChallengeScore, calculateParticipantScoreForMetric, getPeriodInterval } from "@/lib/scoring"
 import { parseAsPST } from "@/lib/dateUtils"
-import { startOfDay, endOfDay } from "date-fns"
+import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns"
 import { buildSnapshotFromMetric, hasConfigChanged } from "@/lib/metricConfig"
 
 interface MetricPayloadQualifier {
@@ -205,6 +205,19 @@ export async function logActivities(data: {
 
         await prisma.$transaction(async (tx) => {
             for (const activity of activities) {
+                // Delete existing logs for this metric on this day for this participant
+                // to ensure the new log replaces the "daily total" shown in the UI.
+                await tx.activityLog.deleteMany({
+                    where: {
+                        participantId,
+                        metricId: activity.metricId,
+                        date: {
+                            gte: startOfDay(date),
+                            lte: endOfDay(date)
+                        }
+                    }
+                });
+
                 await tx.activityLog.create({
                     data: {
                         userId: session.user.id,
@@ -517,4 +530,41 @@ export async function deleteChallenge(challengeId: string) {
         console.error("Failed to delete challenge:", error)
         return { error: "Failed to delete challenge" }
     }
+}
+
+export async function getMetricPeriodStats(data: {
+    participantId: string;
+    challengeId: string;
+    metricId: string;
+    logDate: string;
+    frequency: ScoringFrequency;
+    aggregationMethod: AggregationMethod;
+    challengeStartDate: string;
+    timeZone: string;
+}) {
+    const session = await getServerSession(authOptions)
+    if (!session) throw new Error("Unauthorized")
+
+    const { participantId, challengeId, metricId, logDate, frequency, challengeStartDate, timeZone } = data;
+    const date = parseAsPST(logDate);
+    const startDate = new Date(challengeStartDate);
+
+    const { start: periodStart, end: periodEnd } = getPeriodInterval(date, frequency, timeZone, startDate);
+
+    const logs = await prisma.activityLog.findMany({
+        where: {
+            participantId,
+            challengeId,
+            metricId,
+            date: {
+                gte: periodStart,
+                lte: periodEnd
+            }
+        }
+    });
+
+    // Simple SUM for capping logic as per user requirement (max points for the period)
+    const totalValue = logs.reduce((sum, log) => sum + log.value, 0);
+
+    return { totalValue, periodStart, periodEnd };
 }

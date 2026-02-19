@@ -3,7 +3,7 @@
 import { getActivityLogsForDate, logActivities } from "@/app/actions/challenges"
 import { toLocalISOString } from "@/lib/dateUtils"
 import { Plus, X, Calendar, Activity, Info, CheckCircle2, ChevronDown } from "lucide-react"
-import { MetricInputType, ParticipantStatus } from "@prisma/client"
+import { MetricInputType, ParticipantStatus, ScoringFrequency, AggregationMethod } from "@prisma/client"
 import { useEffect, useState, memo, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import Alert from "./Alert"
@@ -15,6 +15,10 @@ interface Metric {
     inputType: MetricInputType;
     description?: string;
     qualifiers: { id: string; value: string }[];
+    maxPointsPerPeriod?: number | null;
+    pointsPerUnit?: number | null;
+    scoringFrequency: ScoringFrequency;
+    aggregationMethod: AggregationMethod;
 }
 
 interface Participant {
@@ -36,6 +40,7 @@ interface ActivityLoggerProps {
     endDate: Date;
     showPendingMessage?: boolean;
     initialParticipantId?: string;
+    timezone: string;
 }
 
 const MetricInput = memo(({
@@ -113,9 +118,39 @@ const MetricInput = memo(({
                         type="number"
                         step="any"
                         min="0"
+                        max={(() => {
+                            if (metric.maxPointsPerPeriod === null || metric.maxPointsPerPeriod === undefined || metric.maxPointsPerPeriod === Infinity) return undefined;
+                            const ppu = metric.pointsPerUnit || 1;
+                            return metric.maxPointsPerPeriod / ppu;
+                        })()}
                         placeholder="0"
                         value={value as string || ""}
-                        onChange={(e) => onChange(metric.id, e.target.value)}
+                        onChange={(e) => {
+                            const val = e.target.value;
+                            if (val === "") {
+                                onChange(metric.id, "");
+                                return;
+                            }
+
+                            const numVal = parseFloat(val);
+                            if (!isNaN(numVal)) {
+                                if (numVal < 0) {
+                                    onChange(metric.id, "0");
+                                    return;
+                                }
+
+                                if (metric.maxPointsPerPeriod !== null && metric.maxPointsPerPeriod !== undefined && metric.maxPointsPerPeriod !== Infinity) {
+                                    const ppu = metric.pointsPerUnit || 1;
+                                    const maxVal = metric.maxPointsPerPeriod / ppu;
+                                    if (numVal > maxVal) {
+                                        // Clamp to max value
+                                        onChange(metric.id, String(maxVal));
+                                        return;
+                                    }
+                                }
+                            }
+                            onChange(metric.id, val);
+                        }}
                         className="w-full bg-neutral-900 border border-neutral-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500 transition-all text-right font-black"
                     />
                 )}
@@ -134,7 +169,8 @@ export default function ActivityLogger({
     startDate,
     endDate,
     showPendingMessage = true,
-    initialParticipantId
+    initialParticipantId,
+    timezone
 }: ActivityLoggerProps) {
     const [isOpen, setIsOpen] = useState(false)
     const [selectedParticipantId, setSelectedParticipantId] = useState(() => {
@@ -192,7 +228,8 @@ export default function ActivityLogger({
                 } else if (metric.inputType === "TEXT") {
                     nextTextValues[metric.id] = log.notes || ""
                 } else {
-                    nextMetricValues[metric.id] = String(log.value)
+                    const currentVal = parseFloat(nextMetricValues[metric.id] || "0")
+                    nextMetricValues[metric.id] = String(currentVal + log.value)
                 }
 
                 if (!nextNotes && log.notes && metric.inputType !== "TEXT") {
@@ -267,9 +304,28 @@ export default function ActivityLogger({
             } else {
                 const valueStr = metricValues[metric.id] || "";
                 if (valueStr && valueStr.trim() !== "") {
+                    const numVal = parseFloat(valueStr);
+                    if (!isNaN(numVal)) {
+                        if (numVal < 0) {
+                            setError(`Value for ${metric.name} cannot be negative.`);
+                            setLoading(false);
+                            return;
+                        }
+
+                        if (metric.maxPointsPerPeriod !== null && metric.maxPointsPerPeriod !== undefined && metric.maxPointsPerPeriod !== Infinity) {
+                            const ppu = metric.pointsPerUnit || 1;
+                            const maxVal = metric.maxPointsPerPeriod / ppu;
+
+                            if (numVal > maxVal) {
+                                setError(`Value for ${metric.name} exceeds the ${metric.scoringFrequency.toLowerCase()} cap.`);
+                                setLoading(false);
+                                return;
+                            }
+                        }
+                    }
                     entries.push({
                         metricId: metric.id,
-                        value: parseFloat(valueStr),
+                        value: numVal,
                     });
                 }
             }
@@ -408,29 +464,27 @@ export default function ActivityLogger({
 
                         <div className="space-y-4">
                             <label className="text-[10px] font-black text-neutral-500 ml-1">Daily Scores</label>
-                            <div className="grid gap-4 border border-neutral-700/50 rounded-2xl p-2">
-                                {uniqueMetrics.map(metric => (
-                                    <MetricInput
-                                        key={metric.id}
-                                        metric={metric}
-                                        type={metric.inputType}
-                                        value={
-                                            metric.inputType === 'CHECKBOX'
-                                                ? checkboxValues[metric.id]
-                                                : metric.inputType === 'TEXT'
-                                                    ? textValues[metric.id]
-                                                    : metricValues[metric.id]
-                                        }
-                                        onChange={
-                                            metric.inputType === 'CHECKBOX'
-                                                ? handleCheckboxChange
-                                                : metric.inputType === 'TEXT'
-                                                    ? handleTextChange
-                                                    : handleMetricChange
-                                        }
-                                    />
-                                ))}
-                            </div>
+                            {uniqueMetrics.map(metric => (
+                                <MetricInput
+                                    key={metric.id}
+                                    metric={metric}
+                                    type={metric.inputType}
+                                    value={
+                                        metric.inputType === 'CHECKBOX'
+                                            ? checkboxValues[metric.id]
+                                            : metric.inputType === 'TEXT'
+                                                ? textValues[metric.id]
+                                                : metricValues[metric.id]
+                                    }
+                                    onChange={
+                                        metric.inputType === 'CHECKBOX'
+                                            ? handleCheckboxChange
+                                            : metric.inputType === 'TEXT'
+                                                ? handleTextChange
+                                                : handleMetricChange
+                                    }
+                                />
+                            ))}
                         </div>
 
                         <div className="grid gap-3">

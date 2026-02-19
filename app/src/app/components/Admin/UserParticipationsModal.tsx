@@ -6,6 +6,7 @@ import { getUserParticipations, removeParticipant } from "@/app/actions/admin"
 import DateDisplay from "@/app/components/DateDisplay"
 import SuccessAlert from "@/app/components/SuccessAlert"
 import ConfirmationModal from "@/app/components/ConfirmationModal"
+import Alert from "@/app/components/Alert"
 
 interface UserParticipationsModalProps {
     userId: string
@@ -103,10 +104,7 @@ export default function UserParticipationsModal({ userId, userName, joinedAt, is
                             <p className="font-bold">Fetching records...</p>
                         </div>
                     ) : error ? (
-                        <div className="h-full flex flex-col items-center justify-center gap-4 text-red-500">
-                            <AlertCircle className="h-8 w-8" />
-                            <p className="font-bold">{error}</p>
-                        </div>
+                        <Alert type="error" message={error} />
                     ) : participations.length === 0 ? (
                         <div className="h-full flex flex-col items-center justify-center text-neutral-500 gap-2">
                             <p className="font-bold">No active participations found.</p>

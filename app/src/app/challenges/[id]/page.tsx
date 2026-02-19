@@ -228,6 +228,30 @@ export default async function ChallengeDetailPage({
                                                 <span className="ml-2 font-black text-yellow-500">+{rule.points} pts</span>
                                             </div>
                                         ))}
+                                        {m.pointsPerUnit && (
+                                            <div className="flex items-center gap-3 text-sm">
+                                                <CheckCircle2 className="h-4 w-4 text-yellow-500 shrink-0" />
+                                                <span className="text-neutral-300">
+                                                    Score: 1 {m.unit} = {m.pointsPerUnit} pts
+                                                </span>
+                                            </div>
+                                        )}
+                                        {m.maxPointsPerPeriod && (
+                                            <div className="flex items-center gap-3 text-sm italic">
+                                                <CheckCircle2 className="h-4 w-4 text-neutral-400 shrink-0" />
+                                                <span className="text-neutral-400">
+                                                    Cap: {m.maxPointsPerPeriod} pts / {m.scoringFrequency.toLowerCase()}
+                                                </span>
+                                            </div>
+                                        )}
+                                        {m.maxPointsTotal && (
+                                            <div className="flex items-center gap-3 text-sm italic">
+                                                <CheckCircle2 className="h-4 w-4 text-neutral-400 shrink-0" />
+                                                <span className="text-neutral-400">
+                                                    Max Challenge Score: {m.maxPointsTotal} pts
+                                                </span>
+                                            </div>
+                                        )}
                                         <div className="pt-3 border-t border-neutral-800 mt-2 flex items-center justify-between">
                                             <div className="text-[10px] font-bold text-neutral-700">Aggregation</div>
                                             <div className="text-xs font-bold text-neutral-400">{m.aggregationMethod} / {m.scoringFrequency}</div>
@@ -252,52 +276,77 @@ export default async function ChallengeDetailPage({
                         </div>
 
                         <div className="divide-y divide-neutral-800">
-                            {leaderboard.map((user, index) => (
-                                <div
-                                    key={user.participantId}
-                                    className={`pr-4 sm:px-8 py-4 sm:py-6 flex items-center gap-3 sm:gap-6 transition-colors group hover:bg-neutral-900/40 ${index < 3 ? "bg-yellow-500/5" : ""
-                                        }`}
-                                >
-                                    <div className="w-8 sm:w-10 text-center font-black text-neutral-700 text-lg sm:text-xl italic group-hover:text-yellow-500 transition-colors">
-                                        #{index + 1}
-                                    </div>
+                            {(() => {
+                                let currentRank = 0;
+                                let lastScore = -1;
+                                return leaderboard.map((user) => {
+                                    let rank: number | null = null;
+                                    if (user.totalScore > 0) {
+                                        if (user.totalScore !== lastScore) {
+                                            currentRank++;
+                                            lastScore = user.totalScore;
+                                        }
+                                        rank = currentRank;
+                                    }
 
-                                    <div className="relative shrink-0">
-                                        <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-2xl bg-neutral-800 flex items-center justify-center border border-neutral-700">
-                                            {index === 0 ? (
-                                                <Crown className="h-5 w-5 sm:h-6 sm:w-6 text-yellow-500" />
-                                            ) : (
-                                                <UserIcon className="h-5 w-5 sm:h-6 sm:w-6 text-neutral-500" />
-                                            )}
-                                        </div>
-                                    </div>
+                                    return (
+                                        <div
+                                            key={user.participantId}
+                                            className={`pr-4 sm:px-8 py-4 sm:py-6 flex items-center gap-3 sm:gap-6 transition-colors group hover:bg-neutral-900/40 ${rank === 1 ? "bg-yellow-500/10 border-l-4 border-yellow-500/50" :
+                                                rank === 2 ? "bg-slate-400/10 border-l-4 border-slate-400/40" :
+                                                    rank === 3 ? "bg-amber-900/10 border-l-4 border-amber-700/30" :
+                                                        ""
+                                                }`}
+                                        >
+                                            <div className={`w-8 sm:w-10 text-center font-black text-lg sm:text-xl italic transition-colors ${rank === 1 ? "text-yellow-500" :
+                                                rank === 2 ? "text-slate-200" :
+                                                    rank === 3 ? "text-amber-600" :
+                                                        "text-neutral-700 group-hover:text-yellow-500"
+                                                }`}>
+                                                {rank ? `#${rank}` : "-"}
+                                            </div>
 
-                                    <div className="flex-1 min-w-0">
-                                        <h4 className="font-bold text-base sm:text-lg break-words sm:break-normal sm:truncate max-w-[14rem] sm:max-w-none">
-                                            <span className="sm:hidden">
-                                                {user.name?.split(" ").slice(0, 2).join(" ") || "Anonymous"}
-                                            </span>
-                                            <span className="hidden sm:inline">
-                                                {user.name || "Anonymous"}
-                                            </span>
-                                        </h4>
-
-                                        <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1 min-w-0">
-                                            {user.metricScores.map(ms => (
-                                                <div key={ms.name} className="text-[10px] font-bold text-neutral-500 break-words">
-                                                    {ms.name}: <span className="text-neutral-300">{ms.score}</span>
+                                            <div className="relative shrink-0">
+                                                <div className={`h-10 w-10 sm:h-12 sm:w-12 rounded-2xl flex items-center justify-center border ${rank === 1 ? "bg-yellow-500/20 border-yellow-500/50" :
+                                                    rank === 2 ? "bg-slate-800 border-slate-400/50" :
+                                                        rank === 3 ? "bg-amber-900/20 border-amber-700/50" :
+                                                            "bg-neutral-800 border-neutral-700"
+                                                    }`}>
+                                                    {rank === 1 ? (
+                                                        <Crown className="h-5 w-5 sm:h-6 sm:w-6 text-yellow-500" />
+                                                    ) : (
+                                                        <UserIcon className="h-5 w-5 sm:h-6 sm:w-6 text-neutral-500" />
+                                                    )}
                                                 </div>
-                                            ))}
+                                            </div>
+
+                                            <div className="flex-1 min-w-0">
+                                                <h4 className="font-bold text-base sm:text-lg break-words sm:break-normal sm:truncate max-w-[14rem] sm:max-w-none">
+                                                    <span className="sm:hidden">
+                                                        {user.name?.split(" ").slice(0, 2).join(" ") || "Anonymous"}
+                                                    </span>
+                                                    <span className="hidden sm:inline">
+                                                        {user.name || "Anonymous"}
+                                                    </span>
+                                                </h4>
+
+                                                <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1 min-w-0">
+                                                    {user.metricScores.map(ms => (
+                                                        <div key={ms.name} className="text-[10px] font-bold text-neutral-500 break-words">
+                                                            {ms.name}: <span className="text-neutral-300">{ms.score}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+
+                                            <div className="text-right shrink-0">
+                                                <div className="text-xl sm:text-2xl font-black text-white">{user.totalScore}</div>
+                                                <div className="text-[10px] font-bold text-neutral-500">Total Pts</div>
+                                            </div>
                                         </div>
-                                    </div>
-
-                                    <div className="text-right shrink-0">
-                                        <div className="text-xl sm:text-2xl font-black text-white">{user.totalScore}</div>
-                                        <div className="text-[10px] font-bold text-neutral-500">Total Pts</div>
-                                    </div>
-                                </div>
-
-                            ))}
+                                    )
+                                });
+                            })()}
 
                             {leaderboard.length === 0 && (
                                 <div className="p-20 text-center text-neutral-500 flex flex-col items-center">

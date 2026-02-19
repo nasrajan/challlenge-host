@@ -4,6 +4,7 @@ import { useState, useTransition } from "react"
 import { X, Plus, Trash2 } from "lucide-react"
 import { joinChallenge } from "@/app/actions/challenges"
 import { useRouter } from "next/navigation"
+import Alert from "./Alert"
 
 interface JoinChallengeModalProps {
     challengeId: string
@@ -143,9 +144,7 @@ export default function JoinChallengeModal({
                                     </button>
                                 )}
 
-                                {error && (
-                                    <p className="text-red-500 text-sm font-medium animate-in fade-in slide-in-from-top-1">{error}</p>
-                                )}
+                                <Alert type="error" message={error} />
                             </div>
 
                             <div className="flex gap-3 pt-4">

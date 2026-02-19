@@ -5,6 +5,7 @@ import { Trophy, Eye, EyeOff } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
+import Alert from "../../components/Alert"
 import { useFormStatus } from "react-dom"
 import { signIn } from "next-auth/react"
 
@@ -83,11 +84,7 @@ export default function RegisterClient() {
                 </div>
 
                 <form action={handleSubmit} className="space-y-6">
-                    {error && (
-                        <div className="bg-red-900/50 border border-red-500 text-red-200 px-4 py-2 rounded text-sm">
-                            {error}
-                        </div>
-                    )}
+                    <Alert type="error" message={error} />
                     <div className="space-y-4">
                         <div>
                             <label htmlFor="name" className="block text-sm font-medium leading-6 text-neutral-300">

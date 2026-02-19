@@ -451,7 +451,8 @@ export default async function DashboardPage() {
                                                             weekLogs as ScoreLogsArg,
                                                             m as ScoreMetricArg,
                                                             scoreParticipant,
-                                                            timeZone
+                                                            timeZone,
+                                                            challenge.startDate
                                                         );
                                                         const totalScore = lastSnapshot?.totalPoints || 0;
 
@@ -510,8 +511,13 @@ export default async function DashboardPage() {
                                                             unit: metric.unit,
                                                             description: metric.description ?? undefined,
                                                             qualifiers: metric.qualifiers,
-                                                            inputType: metric.inputType // Ensure inputType is passed
+                                                            inputType: metric.inputType,
+                                                            maxPointsPerPeriod: metric.maxPointsPerPeriod,
+                                                            pointsPerUnit: metric.pointsPerUnit,
+                                                            scoringFrequency: metric.scoringFrequency,
+                                                            aggregationMethod: metric.aggregationMethod,
                                                         }))}
+                                                        timezone={challenge.timezone || "UTC"}
                                                     />
                                                 )}
                                                 <div className="flex items-center gap-3">

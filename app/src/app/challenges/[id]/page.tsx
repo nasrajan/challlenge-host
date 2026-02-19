@@ -22,7 +22,7 @@ import ExpandableDescription from "@/app/components/ExpandableDescription"
 
 import { getChallengeLeaderboard } from "@/lib/scoring"
 import WeekSelector from "@/app/components/WeekSelector"
-import { addDays, format, endOfDay } from "date-fns"
+import { addDays, format, endOfDay, startOfDay } from "date-fns"
 import { toZonedTime, fromZonedTime } from "date-fns-tz"
 import { isMidnightUTC } from "@/lib/dateUtils"
 
@@ -90,7 +90,7 @@ export default async function ChallengeDetailPage({
     const timeZone = isMidnightUTC(challenge.startDate) ? 'UTC' : challenge.timezone;
 
     // We want the weeks to start based on the challenge start date in its timezone.
-    let currentStart = toZonedTime(challenge.startDate, timeZone);
+    let currentStart = startOfDay(toZonedTime(challenge.startDate, timeZone));
     const zonedEndDate = toZonedTime(challenge.endDate, timeZone);
 
     let i = 1

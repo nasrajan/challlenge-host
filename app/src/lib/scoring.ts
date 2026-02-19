@@ -105,10 +105,14 @@ type ScoreMetric = {
     maxPointsTotal: number | null
     scoringRules: Pick<ScoringRule, "qualifierId" | "comparisonType" | "minValue" | "maxValue" | "points">[]
     configHistory?: any // Added for versioning
+    challenge?: {
+        startDate: Date
+    }
 }
 type ScoreParticipant = Pick<Participant, "id" | "userId" | "name" | "displayName">
 
 export function calculateScoreFromLogs(logs: ActivityLog[], metric: ScoreMetric, participant: ScoreParticipant, timeZone: string = "UTC", challengeStartDate?: Date) {
+    const effectiveChallengeStartDate = challengeStartDate || metric.challenge?.startDate;
     // Filter logs to only keep the latest entry per (Date, Qualifier)
     const latestLogsMap: Map<string, ActivityLog> = new Map();
     logs.forEach(log => {
@@ -126,7 +130,7 @@ export function calculateScoreFromLogs(logs: ActivityLog[], metric: ScoreMetric,
     // Group logs by scoring period
     const periodsLogs: Map<string, ActivityLog[]> = new Map();
     filteredLogs.forEach(log => {
-        const { start } = getPeriodInterval(log.date, metric.scoringFrequency, timeZone, challengeStartDate);
+        const { start } = getPeriodInterval(log.date, metric.scoringFrequency, timeZone, effectiveChallengeStartDate);
         const key = start.toISOString();
         if (!periodsLogs.has(key)) periodsLogs.set(key, []);
         periodsLogs.get(key)!.push(log);
@@ -137,7 +141,7 @@ export function calculateScoreFromLogs(logs: ActivityLog[], metric: ScoreMetric,
 
     // Iterate through periods
     for (const [periodKey, logsInPeriod] of periodsLogs) {
-        const { start, end } = getPeriodInterval(new Date(periodKey), metric.scoringFrequency, timeZone, challengeStartDate);
+        const { start, end } = getPeriodInterval(new Date(periodKey), metric.scoringFrequency, timeZone, effectiveChallengeStartDate);
 
         // Resolve config for this period
         const historicalConfig = getConfigForPeriod(metric.configHistory, start, end);

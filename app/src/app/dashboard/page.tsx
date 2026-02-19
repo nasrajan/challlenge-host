@@ -15,7 +15,7 @@ import { prisma } from "@/lib/prisma"
 import { approveParticipant, syncChallengeStatuses } from "@/app/actions/challenges"
 import { addDays, endOfDay, format } from "date-fns"
 import { toZonedTime, fromZonedTime, formatInTimeZone } from "date-fns-tz"
-import { calculateScoreFromLogs } from "@/lib/scoring"
+import { calculateScoreFromLogs, getPeriodInterval } from "@/lib/scoring"
 import { isMidnightUTC } from "@/lib/dateUtils"
 
 import ActivityLogger from "@/app/components/ActivityLoggerClient"
@@ -66,6 +66,9 @@ interface DashboardMetric {
     maxPointsTotal: number | null
     qualifiers: DashboardQualifier[]
     scoringRules: DashboardScoringRule[]
+    challenge: {
+        startDate: Date
+    }
     activityLogs: DashboardActivityLog[]
     scoreSnapshots: DashboardScoreSnapshot[]
 }
@@ -146,6 +149,7 @@ function getCurrentChallengeWeekWindow(
     return fallbackWeek
 }
 
+
 export default async function DashboardPage() {
     const session = await getServerSession(authOptions)
 
@@ -204,6 +208,9 @@ export default async function DashboardPage() {
                     pointsPerUnit: true,
                     maxPointsPerPeriod: true,
                     maxPointsTotal: true,
+                    challenge: {
+                        select: { startDate: true }
+                    },
                     qualifiers: {
                         select: { id: true, value: true }
                     },
@@ -417,6 +424,7 @@ export default async function DashboardPage() {
                                         new Date(),
                                         useDateOnlyWeekMode
                                     );
+
                                     return (
                                         <div key={key} className="bg-neutral-900 border border-neutral-800 rounded-3xl p-6 hover:border-neutral-700 transition-all flex flex-col md:flex-row justify-between gap-6 group">
                                             <div className="space-y-4 flex-1">
@@ -451,11 +459,9 @@ export default async function DashboardPage() {
                                                             weekLogs as ScoreLogsArg,
                                                             m as ScoreMetricArg,
                                                             scoreParticipant,
-                                                            timeZone,
-                                                            challenge.startDate
+                                                            timeZone
                                                         );
                                                         const totalScore = lastSnapshot?.totalPoints || 0;
-
                                                         return (
                                                             <div key={m.id} className="bg-neutral-950/40 rounded-2xl p-3 border border-neutral-800 hover:border-neutral-700/50 transition-all flex flex-col justify-between gap-3">
                                                                 <div className="text-[10px] sm:text-[11px] font-black text-neutral-500 uppercase tracking-widest truncate" title={m.name}>{m.name}</div>

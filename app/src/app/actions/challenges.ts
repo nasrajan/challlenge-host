@@ -218,17 +218,24 @@ export async function logActivities(data: {
                     }
                 });
 
-                await tx.activityLog.create({
-                    data: {
-                        userId: session.user.id,
-                        participantId,
-                        challengeId,
-                        metricId: activity.metricId,
-                        value: activity.value,
-                        date,
-                        notes: activity.notes || notes
-                    }
-                });
+                const hasValue = activity.value > 0;
+                const activityNote = activity.notes?.trim();
+                const globalNote = notes?.trim();
+                const hasNote = (activityNote && activityNote !== "") || (globalNote && globalNote !== "");
+
+                if (hasValue || hasNote) {
+                    await tx.activityLog.create({
+                        data: {
+                            userId: session.user.id,
+                            participantId,
+                            challengeId,
+                            metricId: activity.metricId,
+                            value: activity.value,
+                            date,
+                            notes: activity.notes || notes
+                        }
+                    });
+                }
             }
         });
 

@@ -293,18 +293,16 @@ export default function ActivityLogger({
         for (const metric of uniqueMetrics) {
             if (metric.inputType === 'CHECKBOX') {
                 const checked = checkboxValues[metric.id];
-                if (checked) {
-                    entries.push({ metricId: metric.id, value: 1 });
-                }
+                // Always send checkbox metrics to allow unchecking
+                entries.push({ metricId: metric.id, value: checked ? 1 : 0 });
             } else if (metric.inputType === 'TEXT') {
                 const text = textValues[metric.id] || "";
-                if (text && text.trim() !== "") {
-                    entries.push({ metricId: metric.id, value: 1, notes: text });
-                }
+                // Always send text metrics to allow clearing
+                entries.push({ metricId: metric.id, value: text.trim() !== "" ? 1 : 0, notes: text });
             } else {
                 const valueStr = metricValues[metric.id] || "";
-                if (valueStr && valueStr.trim() !== "") {
-                    const numVal = parseFloat(valueStr);
+                if (valueStr !== undefined) { // Check if we have a state for it
+                    const numVal = valueStr === "" ? 0 : parseFloat(valueStr);
                     if (!isNaN(numVal)) {
                         if (numVal < 0) {
                             setError(`Value for ${metric.name} cannot be negative.`);
@@ -322,11 +320,13 @@ export default function ActivityLogger({
                                 return;
                             }
                         }
+
+                        // Send the value (including 0 if cleared)
+                        entries.push({
+                            metricId: metric.id,
+                            value: numVal,
+                        });
                     }
-                    entries.push({
-                        metricId: metric.id,
-                        value: numVal,
-                    });
                 }
             }
         }

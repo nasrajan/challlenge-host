@@ -148,7 +148,8 @@ export function calculateScoreFromLogs(logs: ActivityLog[], metric: ScoreMetric,
 
         const effectivePointsPerUnit = historicalConfig?.pointsPerUnit !== undefined ? historicalConfig.pointsPerUnit : metric.pointsPerUnit;
         const effectiveMaxPerPeriod = historicalConfig?.maxPointsPerPeriod !== undefined ? historicalConfig.maxPointsPerPeriod : metric.maxPointsPerPeriod;
-        const effectiveMaxTotal = historicalConfig?.maxPointsTotal !== undefined ? historicalConfig.maxPointsTotal : metric.maxPointsTotal;
+        // Total Duration cap always uses the latest rule (not the historical snapshot for this period)
+        const effectiveMaxTotal = metric.maxPointsTotal;
         const effectiveRules = historicalConfig?.scoringRules ?? metric.scoringRules;
 
         // Group logs in period by qualifier
@@ -269,7 +270,7 @@ export async function getChallengeLeaderboard(challengeId: string, startDate?: D
             metrics: {
                 include: {
                     scoringRules: true,
-                    qualifiers: true
+                    qualifiers: true,
                 }
             },
             participants: {

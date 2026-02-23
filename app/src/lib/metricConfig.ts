@@ -27,7 +27,7 @@ export function getConfigForPeriod(
         ? (configHistory as MetricConfigSnapshot[])
         : [];
 
-    return history.find(h =>
+    return history.findLast(h =>
         (h.effectiveFrom === null || new Date(h.effectiveFrom) <= periodEnd) &&
         (h.effectiveTo === null || new Date(h.effectiveTo) >= periodStart)
     ) ?? null;

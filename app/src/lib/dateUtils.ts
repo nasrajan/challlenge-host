@@ -1,3 +1,10 @@
+import { formatInTimeZone } from 'date-fns-tz';
+
+export function toZonedISOString(date: Date | string, timeZone: string): string {
+    const d = new Date(date);
+    return formatInTimeZone(d, timeZone, 'yyyy-MM-dd');
+}
+
 export function toLocalISOString(date: Date | string): string {
     if (isMidnightUTC(date)) {
         // preserve the calendar date by using UTC methods
@@ -25,8 +32,8 @@ export function toLocaleDisplayDate(date: Date | string): string {
 
 import { fromZonedTime } from 'date-fns-tz';
 
-export function parseAsPST(dateString: string): Date {
-    return parseDateInTimezone(dateString);
+export function parseAsPST(dateString: string, timeZone: string = 'America/Los_Angeles'): Date {
+    return parseDateInTimezone(dateString, timeZone);
 }
 
 export function parseDateInTimezone(dateString: string, timeZone: string = 'America/Los_Angeles'): Date {

@@ -46,12 +46,6 @@ interface DashboardActivityLog {
     participantId: string | null
 }
 
-interface DashboardScoreSnapshot {
-    totalPoints: number
-    participantId: string | null
-    periodStart: Date
-}
-
 interface DashboardMetric {
     id: string
     name: string
@@ -64,13 +58,13 @@ interface DashboardMetric {
     pointsPerUnit: number | null
     maxPointsPerPeriod: number | null
     maxPointsTotal: number | null
+    configHistory: unknown
     qualifiers: DashboardQualifier[]
     scoringRules: DashboardScoringRule[]
     challenge: {
         startDate: Date
     }
     activityLogs: DashboardActivityLog[]
-    scoreSnapshots: DashboardScoreSnapshot[]
 }
 
 interface DashboardParticipant {
@@ -224,6 +218,7 @@ export default async function DashboardPage() {
                             points: true
                         }
                     },
+                    configHistory: true,
                     activityLogs: {
                         where: { userId: session.user.id },
                         select: {
@@ -232,15 +227,6 @@ export default async function DashboardPage() {
                             qualifierId: true,
                             createdAt: true,
                             participantId: true
-                        }
-                    },
-                    scoreSnapshots: {
-                        where: { userId: session.user.id },
-                        orderBy: { periodStart: 'desc' },
-                        select: {
-                            totalPoints: true,
-                            participantId: true,
-                            periodStart: true
                         }
                     }
                 }
@@ -446,9 +432,6 @@ export default async function DashboardPage() {
 
                                                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
                                                     {challenge.metrics.map((m) => {
-                                                        const participantSnapshots = m.scoreSnapshots.filter((snapshot) => snapshot.participantId === participant?.id);
-                                                        const lastSnapshot = participantSnapshots[0];
-
                                                         const participantLogs = m.activityLogs.filter((log) => log.participantId === participant?.id);
                                                         const weekLogs = participantLogs.filter((log) =>
                                                             log.date >= weekStartUtc && log.date <= weekEndUtc
@@ -459,9 +442,16 @@ export default async function DashboardPage() {
                                                             weekLogs as ScoreLogsArg,
                                                             m as ScoreMetricArg,
                                                             scoreParticipant,
-                                                            timeZone
+                                                            timeZone,
+                                                            challenge.startDate
                                                         );
-                                                        const totalScore = lastSnapshot?.totalPoints || 0;
+                                                        const { totalPoints: totalScore } = calculateScoreFromLogs(
+                                                            participantLogs as ScoreLogsArg,
+                                                            m as ScoreMetricArg,
+                                                            scoreParticipant,
+                                                            timeZone,
+                                                            challenge.startDate
+                                                        );
                                                         return (
                                                             <div key={m.id} className="bg-neutral-950/40 rounded-2xl p-3 border border-neutral-800 hover:border-neutral-700/50 transition-all flex flex-col justify-between gap-3">
                                                                 <div className="text-[10px] sm:text-[11px] font-black text-neutral-500 uppercase tracking-widest truncate" title={m.name}>{m.name}</div>
@@ -522,6 +512,8 @@ export default async function DashboardPage() {
                                                             pointsPerUnit: metric.pointsPerUnit,
                                                             scoringFrequency: metric.scoringFrequency,
                                                             aggregationMethod: metric.aggregationMethod,
+                                                            configHistory: metric.configHistory,
+                                                            scoringRules: metric.scoringRules,
                                                         }))}
                                                         timezone={challenge.timezone || "UTC"}
                                                     />

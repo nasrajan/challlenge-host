@@ -1,10 +1,13 @@
 'use client'
 
 import { getActivityLogsForDate, logActivities } from "@/app/actions/challenges"
-import { toLocalISOString } from "@/lib/dateUtils"
+import { toZonedISOString, parseDateInTimezone } from "@/lib/dateUtils"
 import { Plus, X, Calendar, Activity, Info, CheckCircle2, ChevronDown } from "lucide-react"
-import { MetricInputType, ParticipantStatus, ScoringFrequency, AggregationMethod } from "@prisma/client"
-import { useEffect, useState, memo, useCallback } from "react"
+import { MetricInputType, ParticipantStatus, ScoringFrequency, AggregationMethod, ScoringRule } from "@prisma/client"
+import { useEffect, useState, memo, useCallback, useMemo } from "react"
+import { getConfigForPeriod } from "@/lib/metricConfig"
+import { getPeriodInterval } from "@/lib/scoring"
+import { toZonedTime } from "date-fns-tz"
 import { useRouter } from "next/navigation"
 import Alert from "./Alert"
 
@@ -19,6 +22,8 @@ interface Metric {
     pointsPerUnit?: number | null;
     scoringFrequency: ScoringFrequency;
     aggregationMethod: AggregationMethod;
+    configHistory: any;
+    scoringRules: Pick<ScoringRule, "id" | "qualifierId" | "comparisonType" | "minValue" | "maxValue" | "points">[];
 }
 
 interface Participant {
@@ -47,12 +52,16 @@ const MetricInput = memo(({
     metric,
     value,
     onChange,
-    type
+    type,
+    effectiveMax,
+    effectivePpu
 }: {
     metric: Metric,
     value: string | boolean,
     onChange: (id: string, val: string | boolean) => void,
-    type: MetricInputType
+    type: MetricInputType,
+    effectiveMax: number | null,
+    effectivePpu: number
 }) => {
     const [showTooltip, setShowTooltip] = useState(false)
 
@@ -119,9 +128,8 @@ const MetricInput = memo(({
                         step="any"
                         min="0"
                         max={(() => {
-                            if (metric.maxPointsPerPeriod === null || metric.maxPointsPerPeriod === undefined || metric.maxPointsPerPeriod === Infinity) return undefined;
-                            const ppu = metric.pointsPerUnit || 1;
-                            return metric.maxPointsPerPeriod / ppu;
+                            if (effectiveMax === null || effectiveMax === undefined || effectiveMax === Infinity) return undefined;
+                            return effectiveMax / effectivePpu;
                         })()}
                         placeholder="0"
                         value={value as string || ""}
@@ -139,9 +147,8 @@ const MetricInput = memo(({
                                     return;
                                 }
 
-                                if (metric.maxPointsPerPeriod !== null && metric.maxPointsPerPeriod !== undefined && metric.maxPointsPerPeriod !== Infinity) {
-                                    const ppu = metric.pointsPerUnit || 1;
-                                    const maxVal = metric.maxPointsPerPeriod / ppu;
+                                if (effectiveMax !== null && effectiveMax !== undefined && effectiveMax !== Infinity) {
+                                    const maxVal = effectiveMax / effectivePpu;
                                     if (numVal > maxVal) {
                                         // Clamp to max value
                                         onChange(metric.id, String(maxVal));
@@ -187,7 +194,7 @@ export default function ActivityLogger({
     const [loadingLogs, setLoadingLogs] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [success, setSuccess] = useState(false)
-    const [selectedDate, setSelectedDate] = useState(() => getInitialLogDate(startDate, endDate))
+    const [selectedDate, setSelectedDate] = useState(() => getInitialLogDate(startDate, endDate, timezone))
     const [metricValues, setMetricValues] = useState<Record<string, string>>({})
     const [checkboxValues, setCheckboxValues] = useState<Record<string, boolean>>({})
     const [textValues, setTextValues] = useState<Record<string, string>>({})
@@ -205,6 +212,32 @@ export default function ActivityLogger({
     const handleMetricChange = useCallback((id: string, val: string | boolean) => {
         setMetricValues(prev => ({ ...prev, [id]: val as string }))
     }, [])
+
+    const minDateStr = useMemo(() => toZonedISOString(startDate, timezone), [startDate, timezone])
+    const maxDateStr = useMemo(() => {
+        const today = new Date();
+        const end = new Date(endDate);
+        const maxLimit = today < end ? today : end;
+        return toZonedISOString(maxLimit, timezone);
+    }, [endDate, timezone])
+
+    const effectiveConfigs = useMemo(() => {
+        const date = parseDateInTimezone(selectedDate, timezone);
+        return uniqueMetrics.reduce((acc, m) => {
+            const { start, end } = getPeriodInterval(date, m.scoringFrequency, timezone, startDate);
+            const historical = getConfigForPeriod(m.configHistory, start, end);
+
+            acc[m.id] = {
+                maxPointsPerPeriod: historical?.maxPointsPerPeriod !== undefined
+                    ? historical.maxPointsPerPeriod
+                    : (m.maxPointsPerPeriod ?? null),
+                pointsPerUnit: historical?.pointsPerUnit !== undefined && historical.pointsPerUnit !== null
+                    ? historical.pointsPerUnit
+                    : (m.pointsPerUnit || 1)
+            };
+            return acc;
+        }, {} as Record<string, { maxPointsPerPeriod: number | null, pointsPerUnit: number }>);
+    }, [selectedDate, uniqueMetrics, timezone, startDate]);
 
     const loadLogs = useCallback(async () => {
         if (!isOpen) return
@@ -234,6 +267,15 @@ export default function ActivityLogger({
 
                 if (!nextNotes && log.notes && metric.inputType !== "TEXT") {
                     nextNotes = log.notes
+                }
+            })
+
+            // Default all numeric metrics to "0" if no log exists for this date
+            uniqueMetrics.forEach((m) => {
+                if (m.inputType !== 'CHECKBOX' && m.inputType !== 'TEXT') {
+                    if (nextMetricValues[m.id] === undefined) {
+                        nextMetricValues[m.id] = "0"
+                    }
                 }
             })
 
@@ -268,10 +310,10 @@ export default function ActivityLogger({
         const entries = []
         const logDate = selectedDate
 
-        // Date Validation
-        const startStr = toLocalISOString(startDate)
-        const endStr = toLocalISOString(endDate)
-        const todayStr = toLocalISOString(new Date())
+        // Date Validation — use challenge timezone so boundaries match the date picker
+        const startStr = toZonedISOString(startDate, timezone)
+        const endStr = toZonedISOString(endDate, timezone)
+        const todayStr = toZonedISOString(new Date(), timezone)
 
         if (logDate < startStr) {
             setError(`This challenge starts on ${startStr}. Please select a valid date.`)
@@ -301,6 +343,7 @@ export default function ActivityLogger({
                 entries.push({ metricId: metric.id, value: text.trim() !== "" ? 1 : 0, notes: text });
             } else {
                 const valueStr = metricValues[metric.id] || "";
+                const config = effectiveConfigs[metric.id];
                 if (valueStr !== undefined) { // Check if we have a state for it
                     const numVal = valueStr === "" ? 0 : parseFloat(valueStr);
                     if (!isNaN(numVal)) {
@@ -310,9 +353,8 @@ export default function ActivityLogger({
                             return;
                         }
 
-                        if (metric.maxPointsPerPeriod !== null && metric.maxPointsPerPeriod !== undefined && metric.maxPointsPerPeriod !== Infinity) {
-                            const ppu = metric.pointsPerUnit || 1;
-                            const maxVal = metric.maxPointsPerPeriod / ppu;
+                        if (config.maxPointsPerPeriod !== null && config.maxPointsPerPeriod !== undefined && config.maxPointsPerPeriod !== Infinity) {
+                            const maxVal = config.maxPointsPerPeriod / config.pointsPerUnit;
 
                             if (numVal > maxVal) {
                                 setError(`Value for ${metric.name} exceeds the ${metric.scoringFrequency.toLowerCase()} cap.`);
@@ -377,7 +419,7 @@ export default function ActivityLogger({
             return (
                 <button
                     onClick={() => {
-                        setSelectedDate(getInitialLogDate(startDate, endDate))
+                        setSelectedDate(getInitialLogDate(startDate, endDate, timezone))
                         setIsOpen(true)
                     }}
                     className="flex items-center gap-2 bg-yellow-500 hover:bg-yellow-400 text-neutral-950 px-6 py-3 rounded-2xl transition-all text-sm font-bold shadow-xl shadow-yellow-500/20 active:scale-95"
@@ -403,119 +445,126 @@ export default function ActivityLogger({
     }
 
     return (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-            <div className="bg-neutral-900 border border-neutral-800 rounded-[2rem] w-full max-w-lg overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-300">
-                <div className="px-8 py-6 border-b border-neutral-800 flex items-center justify-between bg-neutral-900/50">
-                    <div>
-                        <h3 className="text-xl font-black flex items-center gap-2">
-                            <Activity className="h-6 w-6 text-yellow-500" />
-                            Update Activities
-                        </h3>
-                        <p className="text-xs text-neutral-500 font-bold tracking-widest mt-1 uppercase">{challengeName}</p>
+        <>
+            <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+                <div className="bg-neutral-900 border border-neutral-800 rounded-[2rem] w-full max-w-lg overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-300">
+                    <div className="px-8 py-6 border-b border-neutral-800 flex items-center justify-between bg-neutral-900/50">
+                        <div>
+                            <h3 className="text-xl font-black flex items-center gap-2">
+                                <Activity className="h-6 w-6 text-yellow-500" />
+                                Update Activities
+                            </h3>
+                            <p className="text-xs text-neutral-500 font-bold tracking-widest mt-1 uppercase">{challengeName}</p>
+                        </div>
+                        <button onClick={() => setIsOpen(false)} className="p-2 hover:bg-neutral-800 rounded-xl text-neutral-500 hover:text-white transition-all">
+                            <X className="h-6 w-6" />
+                        </button>
                     </div>
-                    <button onClick={() => setIsOpen(false)} className="p-2 hover:bg-neutral-800 rounded-xl text-neutral-500 hover:text-white transition-all">
-                        <X className="h-6 w-6" />
-                    </button>
-                </div>
 
-                <form noValidate onSubmit={handleSubmit} className="p-8 space-y-8 max-h-[70vh] overflow-y-auto custom-scrollbar">
-                    <Alert type="error" message={error} />
-                    <Alert type="success" message={success ? "Log saved successfully!" : null} />
+                    <form noValidate onSubmit={handleSubmit} className="p-8 space-y-8 max-h-[70vh] overflow-y-auto custom-scrollbar">
+                        <Alert type="error" message={error} />
+                        <Alert type="success" message={success ? "Log saved successfully!" : null} />
 
-                    <div className="grid gap-6">
-                        {approvedParticipants.length > 1 && (
+                        <div className="grid gap-6">
+                            {approvedParticipants.length > 1 && (
+                                <div className="grid gap-3">
+                                    <label className="text-[10px] font-black text-neutral-500 ml-1">Participant</label>
+                                    <div className="relative">
+                                        <select
+                                            value={selectedParticipantId}
+                                            onChange={(e) => setSelectedParticipantId(e.target.value)}
+                                            className="w-full bg-neutral-800/50 border border-neutral-700/50 rounded-2xl px-4 py-4 outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500 transition-all font-bold appearance-none text-neutral-200"
+                                        >
+                                            {approvedParticipants.map(p => (
+                                                <option key={p.id} value={p.id}>{p.displayName || p.name}</option>
+                                            ))}
+                                        </select>
+                                        <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-neutral-500 pointer-events-none" />
+                                    </div>
+                                </div>
+                            )}
                             <div className="grid gap-3">
-                                <label className="text-[10px] font-black text-neutral-500 ml-1">Participant</label>
-                                <div className="relative">
-                                    <select
-                                        value={selectedParticipantId}
-                                        onChange={(e) => setSelectedParticipantId(e.target.value)}
-                                        className="w-full bg-neutral-800/50 border border-neutral-700/50 rounded-2xl px-4 py-4 outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500 transition-all font-bold appearance-none text-neutral-200"
-                                    >
-                                        {approvedParticipants.map(p => (
-                                            <option key={p.id} value={p.id}>{p.displayName || p.name}</option>
-                                        ))}
-                                    </select>
-                                    <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-neutral-500 pointer-events-none" />
+                                <label className="text-[10px] font-black text-neutral-500 ml-1">Date</label>
+                                <div className="relative group">
+                                    <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-yellow-500 transition-colors" />
+                                    <input
+                                        name="logDate"
+                                        type="date"
+                                        value={selectedDate}
+                                        onChange={(e) => {
+                                            const newDate = e.target.value;
+                                            if (newDate < minDateStr) {
+                                                setSelectedDate(minDateStr);
+                                            } else if (newDate > maxDateStr) {
+                                                setSelectedDate(maxDateStr);
+                                            } else {
+                                                setSelectedDate(newDate);
+                                            }
+                                        }}
+                                        min={minDateStr}
+                                        max={maxDateStr}
+                                        className="w-full bg-neutral-800/50 border border-neutral-700/50 rounded-2xl pl-12 pr-6 py-2 outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500 transition-all font-bold date-input-field"
+                                    />
                                 </div>
                             </div>
-                        )}
-                        <div className="grid gap-3">
-                            <label className="text-[10px] font-black text-neutral-500 ml-1">Date</label>
-                            <div className="relative group">
-                                <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-yellow-500 transition-colors" />
-                                <input
-                                    name="logDate"
-                                    type="date"
-                                    value={selectedDate}
-                                    onChange={(e) => setSelectedDate(e.target.value)}
-                                    min={toLocalISOString(startDate)}
-                                    max={(() => {
-                                        const today = new Date();
-                                        const end = new Date(endDate);
-                                        // Returns the earlier of the two dates
-                                        const maxDate = today < end ? today : end;
-                                        return toLocalISOString(maxDate);
-                                    })()}
-                                    className="w-full bg-neutral-800/50 border border-neutral-700/50 rounded-2xl pl-12 pr-6 py-2 outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500 transition-all font-bold date-input-field"
+
+                            <div className="space-y-4">
+                                <label className="text-[10px] font-black text-neutral-500 ml-1">Daily Scores</label>
+                                {uniqueMetrics.map(metric => (
+                                    <MetricInput
+                                        key={metric.id}
+                                        metric={metric}
+                                        type={metric.inputType}
+                                        effectiveMax={effectiveConfigs[metric.id].maxPointsPerPeriod}
+                                        effectivePpu={effectiveConfigs[metric.id].pointsPerUnit}
+                                        value={
+                                            metric.inputType === 'CHECKBOX'
+                                                ? checkboxValues[metric.id]
+                                                : metric.inputType === 'TEXT'
+                                                    ? textValues[metric.id]
+                                                    : metricValues[metric.id]
+                                        }
+                                        onChange={
+                                            metric.inputType === 'CHECKBOX'
+                                                ? handleCheckboxChange
+                                                : metric.inputType === 'TEXT'
+                                                    ? handleTextChange
+                                                    : handleMetricChange
+                                        }
+                                    />
+                                ))}
+                            </div>
+
+                            <div className="grid gap-3">
+                                <label className="text-[10px] font-black text-neutral-500 ml-1">Notes (Optional)</label>
+                                <textarea
+                                    name="notes"
+                                    value={notesValue}
+                                    onChange={(e) => setNotesValue(e.target.value)}
+                                    className="w-full bg-neutral-800/50 border border-neutral-700/50 rounded-2xl px-6 py-4 outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500 transition-all h-24 text-sm resize-none"
+                                    placeholder="Add some context to your mission today..."
                                 />
                             </div>
                         </div>
 
-                        <div className="space-y-4">
-                            <label className="text-[10px] font-black text-neutral-500 ml-1">Daily Scores</label>
-                            {uniqueMetrics.map(metric => (
-                                <MetricInput
-                                    key={metric.id}
-                                    metric={metric}
-                                    type={metric.inputType}
-                                    value={
-                                        metric.inputType === 'CHECKBOX'
-                                            ? checkboxValues[metric.id]
-                                            : metric.inputType === 'TEXT'
-                                                ? textValues[metric.id]
-                                                : metricValues[metric.id]
-                                    }
-                                    onChange={
-                                        metric.inputType === 'CHECKBOX'
-                                            ? handleCheckboxChange
-                                            : metric.inputType === 'TEXT'
-                                                ? handleTextChange
-                                                : handleMetricChange
-                                    }
-                                />
-                            ))}
+                        <div className="flex gap-4 pt-4">
+                            <button
+                                type="button"
+                                onClick={() => setIsOpen(false)}
+                                className="flex-1 px-8 py-4 rounded-2xl border border-neutral-800 font-bold hover:bg-neutral-800 transition-all active:scale-95"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                disabled={loading || loadingLogs}
+                                type="submit"
+                                className="flex-[2] bg-yellow-500 text-neutral-950 font-black py-4 rounded-2xl hover:bg-yellow-400 transition-all shadow-xl shadow-yellow-500/20 disabled:opacity-50 active:scale-95"
+                            >
+                                {loading ? "Saving..." : "Save"}
+                            </button>
                         </div>
-
-                        <div className="grid gap-3">
-                            <label className="text-[10px] font-black text-neutral-500 ml-1">Notes (Optional)</label>
-                            <textarea
-                                name="notes"
-                                value={notesValue}
-                                onChange={(e) => setNotesValue(e.target.value)}
-                                className="w-full bg-neutral-800/50 border border-neutral-700/50 rounded-2xl px-6 py-4 outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500 transition-all h-24 text-sm resize-none"
-                                placeholder="Add some context to your mission today..."
-                            />
-                        </div>
-                    </div>
-
-                    <div className="flex gap-4 pt-4">
-                        <button
-                            type="button"
-                            onClick={() => setIsOpen(false)}
-                            className="flex-1 px-8 py-4 rounded-2xl border border-neutral-800 font-bold hover:bg-neutral-800 transition-all active:scale-95"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            disabled={loading || loadingLogs}
-                            type="submit"
-                            className="flex-[2] bg-yellow-500 text-neutral-950 font-black py-4 rounded-2xl hover:bg-yellow-400 transition-all shadow-xl shadow-yellow-500/20 disabled:opacity-50 active:scale-95"
-                        >
-                            {loading ? "Saving..." : "Save"}
-                        </button>
-                    </div>
-                </form>
+                    </form>
+                </div>
             </div>
             <style jsx>{`
                 .custom-scrollbar::-webkit-scrollbar {
@@ -542,15 +591,17 @@ export default function ActivityLogger({
                     background: rgba(255, 255, 255, 0.1);
                 }
             `}</style>
-        </div>
+        </>
     )
 }
 
-function getInitialLogDate(startDate: Date, endDate: Date) {
+function getInitialLogDate(startDate: Date, endDate: Date, timezone: string) {
     const today = new Date();
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    if (today < start) return toLocalISOString(start);
-    if (today > end) return toLocalISOString(end);
-    return toLocalISOString(today);
+    const startStr = toZonedISOString(startDate, timezone);
+    const endStr = toZonedISOString(endDate, timezone);
+    const todayStr = toZonedISOString(today, timezone);
+
+    if (todayStr < startStr) return startStr;
+    if (todayStr > endStr) return endStr;
+    return todayStr;
 }

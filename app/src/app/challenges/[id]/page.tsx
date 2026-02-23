@@ -55,7 +55,7 @@ export default async function ChallengeDetailPage({
     const session = await getServerSession(authOptions)
     const { id: challengeId } = await params
     const searchParams = await searchParamsPromise
-    const selectedWeek = searchParams.week ? parseInt(searchParams.week) : null
+    const weekParam = searchParams.week
 
     const challenge = await prisma.challenge.findUnique({
         where: { id: challengeId },
@@ -81,40 +81,59 @@ export default async function ChallengeDetailPage({
 
     const isParticipant = !!challenge.participants.find((p: { userId: string }) => p.userId === session?.user?.id);
 
-    // Calculate Weeks
-    const weeks = []
-
-    // Heuristic: If startDate is Midnight UTC, treat it as a "Date Only" field and iterate in UTC
-    // to preserve the calendar date (e.g. Feb 2).
-    // Otherwise, respect the challenge's timezone.
+    // Calculate Weeks and determine default
+    const weeks: { number: number, start: Date, end: Date, label: string }[] = []
     const timeZone = isMidnightUTC(challenge.startDate) ? 'UTC' : challenge.timezone;
+    const now = new Date()
+    const currentZoneNow = toZonedTime(now, timeZone)
+    let defaultWeekNum: number | null = null
 
     // We want the weeks to start based on the challenge start date in its timezone.
-    let currentStart = startOfDay(toZonedTime(challenge.startDate, timeZone));
+    let iterStart = startOfDay(toZonedTime(challenge.startDate, timeZone));
     const zonedEndDate = toZonedTime(challenge.endDate, timeZone);
 
     let i = 1
-    while (currentStart < zonedEndDate) {
-        // Calculate end of week (start + 6 days)
-        let currentEnd = endOfDay(addDays(currentStart, 6));
+    while (iterStart < zonedEndDate) {
+        let iterEnd = endOfDay(addDays(iterStart, 6));
+        if (iterEnd > endOfDay(zonedEndDate)) {
+            iterEnd = endOfDay(zonedEndDate);
+        }
 
-        // Cap at challenge end date
-        if (currentEnd > endOfDay(zonedEndDate)) {
-            currentEnd = endOfDay(zonedEndDate);
+        // Identify if currentZoneNow falls within this week's zoned range
+        if (currentZoneNow >= iterStart && currentZoneNow <= iterEnd) {
+            defaultWeekNum = i;
         }
 
         weeks.push({
             number: i++,
-            // We need to pass back UTC dates to the leaderboard query, so we convert back
-            start: fromZonedTime(currentStart, timeZone),
-            end: fromZonedTime(currentEnd, timeZone),
-            label: `${format(currentStart, 'MMM d')} - ${format(currentEnd, 'MMM d')}`
+            start: fromZonedTime(iterStart, timeZone),
+            end: fromZonedTime(iterEnd, timeZone),
+            label: `${format(iterStart, 'MMM d')} - ${format(iterEnd, 'MMM d')}`
         })
-        currentStart = addDays(currentStart, 7)
+        iterStart = addDays(iterStart, 7)
+    }
+
+    // Determine fallback for defaultWeekNum
+    if (!defaultWeekNum) {
+        if (now < challenge.startDate) {
+            defaultWeekNum = 1
+        } else {
+            defaultWeekNum = null // All time for past challenges
+        }
+    }
+
+    // Determine selected week based on param or default
+    let selectedWeekNum: number | null = null
+    if (weekParam === 'all') {
+        selectedWeekNum = null
+    } else if (weekParam) {
+        selectedWeekNum = parseInt(weekParam)
+    } else {
+        selectedWeekNum = defaultWeekNum
     }
 
     // Get Leaderboard Data
-    const weekData = selectedWeek ? weeks.find(w => w.number === selectedWeek) : null
+    const weekData = selectedWeekNum ? weeks.find(w => w.number === selectedWeekNum) : null
     const leaderboard = await getChallengeLeaderboard(
         challengeId,
         weekData?.start,
@@ -190,6 +209,8 @@ export default async function ChallengeDetailPage({
                                         pointsPerUnit: m.pointsPerUnit,
                                         scoringFrequency: m.scoringFrequency,
                                         aggregationMethod: m.aggregationMethod,
+                                        configHistory: m.configHistory,
+                                        scoringRules: m.scoringRules,
                                     }))}
                                     timezone={challenge.timezone}
                                 />
@@ -277,7 +298,7 @@ export default async function ChallengeDetailPage({
                                 <BarChart className="h-6 w-6 text-yellow-500" />
                                 Leaderboard
                             </h2>
-                            <WeekSelector weeks={weeks} />
+                            <WeekSelector weeks={weeks} selectedWeekNum={selectedWeekNum} />
                         </div>
 
                         <div className="divide-y divide-neutral-800">

@@ -183,7 +183,14 @@ export async function logActivities(data: {
     if (!session) throw new Error("Unauthorized")
 
     const { challengeId, participantId, logDate, notes, activities } = data;
-    const date = parseAsPST(logDate);
+
+    const challenge = await prisma.challenge.findUnique({
+        where: { id: challengeId },
+        select: { timezone: true }
+    });
+
+    const timezone = challenge?.timezone || 'America/Los_Angeles';
+    const date = parseAsPST(logDate, timezone);
 
     try {
         const participant = await prisma.participant.findUnique({
@@ -257,7 +264,12 @@ export async function getActivityLogsForDate(challengeId: string, logDate: strin
     const session = await getServerSession(authOptions)
     if (!session) throw new Error("Unauthorized")
 
-    const date = parseAsPST(logDate)
+    const challenge = await prisma.challenge.findUnique({
+        where: { id: challengeId },
+        select: { timezone: true }
+    });
+    const timezone = challenge?.timezone || 'America/Los_Angeles';
+    const date = parseAsPST(logDate, timezone)
     const dayStart = startOfDay(date)
     const dayEnd = endOfDay(date)
 
@@ -414,27 +426,34 @@ export async function updateChallenge(challengeId: string, formData: FormData) {
                     let updatedConfigHistory = (existingMetric as any).configHistory
 
                     if (hasConfigChanged(oldSnapshot, newSnapshot)) {
-                        // Config changed, archive the old one
+                        // Config changed. We only archive the OLD one (the "start-of-week" rule)
+                        // for the current period if we haven't already done so.
                         const { end: periodEnd } = getPeriodInterval(
                             new Date(),
                             existingMetric.scoringFrequency,
-                            existing.timezone
+                            existing.timezone,
+                            existing.startDate
                         )
 
                         const history = Array.isArray((existingMetric as any).configHistory)
                             ? [...((existingMetric as any).configHistory as any[])]
                             : []
 
-                        // Find if there's an existing history entry covering from the end of last entry
-                        const lastEntry = history.length > 0 ? history[history.length - 1] : null
-                        const effectiveFrom = lastEntry ? lastEntry.effectiveTo : null
+                        const currentPeriodEndISO = periodEnd.toISOString();
+                        const existsForPeriod = history.some(h => h.effectiveTo === currentPeriodEndISO);
 
-                        history.push({
-                            ...oldSnapshot,
-                            effectiveFrom,
-                            effectiveTo: periodEnd.toISOString()
-                        })
-                        updatedConfigHistory = history
+                        if (!existsForPeriod) {
+                            // Lock the current period to the rule that was active before this change
+                            const lastEntry = history.length > 0 ? history[history.length - 1] : null
+                            const effectiveFrom = lastEntry ? lastEntry.effectiveTo : null
+
+                            history.push({
+                                ...oldSnapshot,
+                                effectiveFrom,
+                                effectiveTo: currentPeriodEndISO
+                            })
+                            updatedConfigHistory = history
+                        }
                     }
 
                     await tx.challengeMetric.update({
@@ -553,7 +572,7 @@ export async function getMetricPeriodStats(data: {
     if (!session) throw new Error("Unauthorized")
 
     const { participantId, challengeId, metricId, logDate, frequency, challengeStartDate, timeZone } = data;
-    const date = parseAsPST(logDate);
+    const date = parseAsPST(logDate, timeZone);
     const startDate = new Date(challengeStartDate);
 
     const { start: periodStart, end: periodEnd } = getPeriodInterval(date, frequency, timeZone, startDate);

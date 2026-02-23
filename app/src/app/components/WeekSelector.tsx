@@ -13,12 +13,22 @@ interface Week {
 
 interface WeekSelectorProps {
     weeks: Week[]
+    selectedWeekNum: number | null
 }
 
-export default function WeekSelector({ weeks }: WeekSelectorProps) {
+export default function WeekSelector({ weeks, selectedWeekNum }: WeekSelectorProps) {
     const router = useRouter()
     const searchParams = useSearchParams()
-    const currentWeekVal = searchParams.get('week') || 'all'
+
+    // Fallback logic: 
+    // 1. Check for explicit 'week' param in URL
+    // 2. If 'week' is missing, use the selectedWeekNum passed from server
+    // 3. Defaults to 'all' if both are missing
+    const weekParam = searchParams.get('week')
+    const currentWeekVal = weekParam
+        ? weekParam
+        : (selectedWeekNum ? selectedWeekNum.toString() : 'all')
+
     const [isOpen, setIsOpen] = useState(false)
     const containerRef = useRef<HTMLDivElement>(null)
 
@@ -41,7 +51,7 @@ export default function WeekSelector({ weeks }: WeekSelectorProps) {
     const handleSelect = (val: string) => {
         const params = new URLSearchParams(searchParams.toString())
         if (val === 'all') {
-            params.delete('week')
+            params.set('week', 'all')
         } else {
             params.set('week', val)
         }

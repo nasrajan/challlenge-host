@@ -13,6 +13,7 @@ import {
     CheckCircle2,
     User as UserIcon,
     Crown,
+    Award,
 } from "lucide-react"
 import JoinChallengeModal from "@/app/components/JoinChallengeModal"
 import ActivityLogger from "@/app/components/ActivityLoggerClient"
@@ -340,9 +341,15 @@ export default async function ChallengeDetailPage({
                                                     }`}>
                                                     {rank === 1 ? (
                                                         <Crown className="h-5 w-5 sm:h-6 sm:w-6 text-yellow-500" />
-                                                    ) : (
-                                                        <UserIcon className="h-5 w-5 sm:h-6 sm:w-6 text-neutral-500" />
-                                                    )}
+                                                    ) :
+                                                        rank === 2 ? (
+                                                            <Trophy className="h-5 w-5 sm:h-6 sm:w-6 text-slate-400" />
+                                                        ) :
+                                                            rank === 3 ? (
+                                                                <Award className="h-5 w-5 sm:h-6 sm:w-6 text-amber-700" />
+                                                            ) :
+                                                                <UserIcon className="h-5 w-5 sm:h-6 sm:w-6 text-neutral-500" />
+                                                    }
                                                 </div>
                                             </div>
 
